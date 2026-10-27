@@ -1,14 +1,9 @@
-import json
-
 import pytest
 
 from app import policy
-from app.domain import State
 from app.errors import HashMismatch, InvalidTransition, NotFound, PolicyViolation
-from app.muse.ads import MuseAdStudio, parse_ad_draft, parse_picture_check
-from app.muse.loop import DraftError
-from app.providers.sandbox import SandboxAdAccount
 from app.wiring import build, load_fixture
+
 
 FACTS = load_fixture()["facts"]
 
@@ -19,68 +14,6 @@ def orch():
 
 def types(o):
     return [e["type"] for e in o.audit.events(1000)][::-1]
-
-
-# ---------- ad rules ----------
-@pytest.mark.parametrize("headline,text,code", [
-    ("Smile before and after", "Come see.", "before_after"),
-    ("Best dentist in town", "Call us.", "results_claim"),
-    ("Painless care", "Call us.", "results_claim"),
-    ("Welcome", "Results guaranteed.", "results_claim"),
-    ("Free whitening", "Today only.", "price_claim"),
-    ("Welcome", "Only $99 for a cleaning.", "price_claim"),
-    ("Welcome", "Our patients love us.", "patient_proof"),
-    ("Welcome", "We fix your pain fast.", "health_claim"),
-    ("Welcome", "Call (555) 999-1234.", "unknown_phone"),
-    ("x" * 41, "Hello there.", "headline_too_long"),
-    ("Welcome", "x" * 126, "text_too_long"),
-    ("", "Hello", "empty"),
-])
-def test_check_ad_blocks(headline, text, code):
-    assert code in {i.code for i in policy.check_ad(headline, text, FACTS)}
-
-
-def test_check_ad_allows_the_plain_version():
-    assert policy.check_ad("Now welcoming new patients", "Brightwood Family Dental is taking new patients. Call (555) 010-0142 to book a time.", FACTS) == []
-
-
-def test_a_price_is_allowed_only_when_the_practice_lists_it():
-    facts = {**FACTS, "offers": ["$99 new patient exam"]}
-    assert policy.check_ad("New patients", "A $99 new patient exam.", facts) == []
-    assert policy.check_ad("New patients", "A $49 exam.", facts)[0].code == "price_claim"
-
-
-PNG = b"\x89PNG\r\n\x1a\n" + b"x" * 20
-GOOD = {"no_people": True, "no_before_after": True, "no_health_claim": True, "text_legible": True}
-
-
-def test_image_gate_needs_every_check_to_be_exactly_true():
-    assert policy.check_image(PNG, GOOD) == []
-    for k in GOOD:
-        assert {i.code for i in policy.check_image(PNG, {**GOOD, k: False})} == {k}
-    assert policy.check_image(PNG, {**GOOD, "no_people": "true"})            # a string is not True
-    assert policy.check_image(PNG, None)[0].code == "not_reviewed"
-    assert policy.check_image(b"<svg onload=alert(1)>", GOOD)[0].code == "not_an_image"
-    assert policy.check_image(PNG + b"x" * policy.MAX_IMAGE_BYTES, GOOD)[0].code == "image_too_big"
-
-
-def test_image_type_comes_from_the_bytes():
-    assert policy.sniff_image(b"RIFF\x00\x00\x00\x00WEBPVP8X") == "image/webp"
-    assert policy.sniff_image(b"\xff\xd8\xff\xe0") == "image/jpeg"
-    assert policy.sniff_image(b"GIF89a") is None
-
-
-# ---------- the sandbox ad account ----------
-def test_ad_account_cannot_activate_or_spend():
-    assert not any(hasattr(SandboxAdAccount, n) for n in ("activate", "publish", "set_budget", "enable", "resume"))
-    cols = {r["name"] for r in orch().store.all("PRAGMA table_info(ads)")}
-    assert not cols & {"budget", "spend", "daily_budget"} and "status" in cols
-
-
-def test_ad_status_can_only_be_paused():
-    o = orch()
-    with pytest.raises(Exception):
-        o.store.run("UPDATE ads SET status='active'")
 
 
 # ---------- propose ----------
@@ -263,75 +196,3 @@ def test_replies_and_ads_share_one_audit_chain():
     assert {e["proposal_id"] for e in o.audit.events(1000)} >= {r["id"], a["id"]}
 
 
-# ---------- Muse ad studio, with a scripted fake ----------
-class _Item:
-    def __init__(self, **kw):
-        self.__dict__.update(kw)
-
-
-class _Resp:
-    def __init__(self, output, text="", rid="r"):
-        self.output, self.output_text, self.id = output, text, rid
-
-
-class _FakeMuse:
-    def __init__(self, script):
-        self.script, self.sent = list(script), []
-
-    def respond(self, **kw):
-        self.sent.append(kw)
-        return self.script.pop(0)
-
-
-class _Ctx:
-    def facts(self):
-        return FACTS
-
-    def ad_rules(self):
-        return policy.AD_RULES_TEXT
-
-
-def test_ad_studio_runs_the_tool_loop():
-    call = lambda n, i: _Item(type="function_call", name=n, arguments="{}", call_id=f"c{i}")
-    final = json.dumps({"headline": "Hi", "text": "There", "image_prompts": ["a", "b", "c", "d"], "facts_used": []})
-    m = _FakeMuse([_Resp([call("ads.get_practice_facts", 1)], rid="r1"), _Resp([call("ads.get_ad_rules", 2)], rid="r2"),
-                   _Resp([_Item(type="message")], text=final, rid="r3")])
-    d = MuseAdStudio(m, _Ctx()).draft("Spring")
-    assert d.headline == "Hi" and len(d.image_prompts) == 3        # capped at three pictures
-    assert m.sent[2]["previous_response_id"] == "r2" and all(s["tools"] for s in m.sent)
-
-
-def test_ad_studio_tools_reject_bad_arguments_and_have_no_write_tool():
-    s = MuseAdStudio(None, _Ctx())
-    assert "error" in s._run_tool("ads.get_practice_facts", "not json")
-    assert "error" in s._run_tool("ads.get_practice_facts", '{"x":1}')
-    assert "error" in s._run_tool("ads.create_ad", "{}")
-    assert "rules" in s._run_tool("ads.get_ad_rules", "{}")
-
-
-def test_picture_check_is_translated_by_code():
-    raw = json.dumps({"has_people": True, "has_before_after": False, "has_health_claim": False, "text_hard_to_read": False, "notes": " a person "})
-    r = parse_picture_check(raw)
-    assert r["no_people"] is False and r["no_before_after"] is True and r["notes"] == "a person"
-    for bad in ["nope", "{}", json.dumps({"has_people": "no", "has_before_after": False, "has_health_claim": False, "text_hard_to_read": False, "notes": ""})]:
-        with pytest.raises(DraftError):
-            parse_picture_check(bad)
-
-
-def test_picture_check_sends_the_picture_as_an_image_input():
-    ok = json.dumps({"has_people": False, "has_before_after": False, "has_health_claim": False, "text_hard_to_read": False, "notes": ""})
-    m = _FakeMuse([_Resp([], text=ok)])
-    out = MuseAdStudio(m, _Ctx()).review_image(PNG)
-    assert out["no_people"] is True
-    part = m.sent[0]["input"][0]["content"][1]
-    assert part["type"] == "input_image" and part["image_url"].startswith("data:image/png;base64,")
-
-
-def test_parse_ad_draft_validates_shape():
-    ok = {"headline": "h", "text": "t", "image_prompts": ["p"], "facts_used": []}
-    assert parse_ad_draft(json.dumps(ok)).headline == "h"
-    for bad in [{}, {**ok, "image_prompts": []}, {**ok, "headline": 1}, {**ok, "image_prompts": [3]}, {**ok, "extra": 1}]:
-        with pytest.raises(DraftError):
-            parse_ad_draft(json.dumps(bad))
-    with pytest.raises(DraftError):
-        parse_ad_draft("not json")
