@@ -5,6 +5,7 @@ Google is writable; Yelp is read-only because no way for an app to post a Yelp r
 import time
 
 from .read import PLATFORMS, SandboxReader
+from .seed import seed_ads, seed_reviews
 
 
 class ManualHandoff(Exception):
@@ -20,14 +21,7 @@ class _Base(SandboxReader):
         self.store = store
 
     def seed(self, reviews: list[dict]) -> None:
-        with self.store.tx():
-            if self.store.one("SELECT 1 FROM reviews LIMIT 1"):
-                return
-            for i, r in enumerate(reviews):
-                self.store.run(
-                    "INSERT INTO reviews (id, ord, platform, stars, who, date, text, reply) VALUES (?,?,?,?,?,?,?,?)",
-                    (r["id"], i, r["platform"], r["stars"], r["who"], r["date"], r["text"], r.get("reply")),
-                )
+        seed_reviews(self.store, reviews)
 
     # demo and test control: someone changes the review outside this app
     def edit_text(self, review_id: str, suffix: str) -> None:
@@ -70,12 +64,7 @@ class SandboxAdAccount(SandboxReader):
         self.store = store
 
     def seed(self, ads: list[dict]) -> None:
-        with self.store.tx():
-            if self.store.one("SELECT 1 FROM ads LIMIT 1"):
-                return
-            for a in ads:
-                self.store.run("INSERT INTO ads (name, status, headline, text, image_sha, format) VALUES (?,?,?,?,?,?)",
-                               (a["name"], "paused", a["headline"], a["text"], None, a.get("format", "wide")))
+        seed_ads(self.store, ads)
 
     def create_paused_draft(self, name: str, headline: str, text: str, image_sha: str, fmt: str, idem: str) -> None:
         """Idempotent: the same key never writes twice."""

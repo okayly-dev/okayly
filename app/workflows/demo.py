@@ -1,4 +1,5 @@
 """Demo controls (only reachable when DEMO_CONTROLS=1)."""
+from ..providers.seed import seed_ads, seed_reviews
 
 
 def demo_reset(rt, reviews: list[dict], ads: list[dict] = ()) -> None:
@@ -6,8 +7,8 @@ def demo_reset(rt, reviews: list[dict], ads: list[dict] = ()) -> None:
         for t in ("proposals", "events", "writes", "reviews", "ads", "images"):
             rt.store.run(f"DELETE FROM {t}")
         rt.store.run("DELETE FROM sqlite_sequence WHERE name='events'")
-    rt.seed_reviews(reviews)
-    rt.seed_ads(list(ads))
+    seed_reviews(rt.store, reviews)
+    seed_ads(rt.store, list(ads))
 
 
 def demo_tamper(rt, on: bool) -> dict:

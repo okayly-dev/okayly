@@ -18,8 +18,7 @@ class Orchestrator:
                  ad_studio=None):
         self.store, self.providers = store, providers
         reader = SandboxReader(store)
-        self.rt = Runtime(store, reader, drafter, ad_studio, facts, past_replies, clock, ttl,
-                          seed_reviews=providers["Google"].seed, seed_ads=providers["Ads"].seed)
+        self.rt = Runtime(store, reader, drafter, ad_studio, facts, past_replies, clock, ttl)
         self.audit = self.rt.audit
         self.executor = Executor(store, self.audit, providers, reader)
 
