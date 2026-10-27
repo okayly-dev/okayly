@@ -1,0 +1,87 @@
+"""HTTP interface. Every button in the interface maps to one endpoint here. The browser holds
+no model key and no provider credentials."""
+import os
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+from .errors import OrchestratorError, PolicyViolation
+from .wiring import build
+
+
+class ApproveBody(BaseModel):
+    hash: str = Field(min_length=8, max_length=128)
+
+
+class EditBody(BaseModel):
+    reply: str = Field(max_length=2000)
+
+
+class RejectBody(BaseModel):
+    reason: str = Field(min_length=1, max_length=200)
+
+
+class SuffixBody(BaseModel):
+    suffix: str = Field(default=" (Edit: the wait was closer to an hour.)", max_length=300)
+
+
+def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
+    orch = orchestrator or build()
+    demo = demo_controls if demo_controls is not None else os.environ.get("DEMO_CONTROLS") == "1"
+    app = FastAPI(title="Review-reply orchestrator", docs_url="/api/docs", openapi_url="/api/openapi.json")
+
+    @app.exception_handler(OrchestratorError)
+    async def handle(_: Request, e: OrchestratorError):
+        body = {"error": str(e)}
+        if isinstance(e, PolicyViolation):
+            body["issues"] = [{"code": i.code, "message": i.message} for i in e.issues]
+        return JSONResponse(body, status_code=e.status)
+
+    @app.get("/api/health")
+    def health():
+        return {"ok": True, "drafter": type(orch.drafter).__name__}
+
+    @app.get("/api/reviews")
+    def reviews():
+        return orch.list_reviews()
+
+    @app.post("/api/reviews/{review_id}/propose")
+    def propose(review_id: str):
+        return orch.propose_reply(review_id)
+
+    @app.get("/api/proposals/{pid}")
+    def proposal(pid: str):
+        return orch.get(pid)
+
+    @app.post("/api/proposals/{pid}/edit")
+    def edit(pid: str, b: EditBody):
+        return orch.edit_reply(pid, b.reply)
+
+    @app.post("/api/proposals/{pid}/approve")
+    def approve(pid: str, b: ApproveBody):
+        return orch.approve(pid, b.hash)
+
+    @app.post("/api/proposals/{pid}/reject")
+    def reject(pid: str, b: RejectBody):
+        return orch.reject(pid, b.reason)
+
+    @app.get("/api/audit")
+    def audit(limit: int = 200):
+        return orch.audit.events(min(max(limit, 1), 1000))
+
+    @app.get("/api/audit/verify")
+    def verify():
+        return orch.audit.verify()
+
+    @app.get("/api/usage")
+    def usage():
+        return orch.usage()
+
+    if demo:
+        @app.post("/api/demo/reviews/{review_id}/edit")
+        def demo_edit(review_id: str, b: SuffixBody):
+            orch.providers["Google"].edit_text(review_id, b.suffix)
+            return {"ok": True}
+
+    return app

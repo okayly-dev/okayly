@@ -1,0 +1,44 @@
+{
+  "practice": "Brightwood Family Dental (fictional)",
+  "facts": {
+    "practice": "Brightwood Family Dental",
+    "phones": ["(555) 010-0142"],
+    "urls": [],
+    "hours": "Monday to Friday, 8 am to 5 pm",
+    "parking": "Extra parking is available behind the building when the front lot is full.",
+    "voice": "Warm, short, plain words. No jargon. Never defensive."
+  },
+  "past_replies": [
+    "Thank you for the kind words. We appreciate you taking the time to write this.",
+    "Thank you for the feedback. We have passed it to the team.",
+    "Thank you. Comments like this mean a lot to everyone here."
+  ],
+  "reviews": [
+    {"id": "g1", "platform": "Google", "stars": 2, "who": "Dana M.", "date": "Oct 25", "reply": null,
+     "text": "Waited 45 minutes past my crown appointment time and nobody told me why. The front desk was friendly but I felt forgotten. Not sure I will come back."},
+    {"id": "g2", "platform": "Google", "stars": 5, "who": "Priya S.", "date": "Oct 24", "reply": null,
+     "text": "Everyone was so kind and the office is spotless. My kids actually like coming here!"},
+    {"id": "y1", "platform": "Yelp", "stars": 4, "who": "Marcus T.", "date": "Oct 22", "reply": null,
+     "text": "Great cleaning and online booking was easy. Parking in the front lot is tight though."},
+    {"id": "y3", "platform": "Yelp", "stars": 1, "who": "Sam K.", "date": "Oct 21", "reply": null,
+     "text": "I was billed twice and nobody will return my calls. I am talking to a lawyer."},
+    {"id": "g3", "platform": "Google", "stars": 5, "who": "Lena R.", "date": "Oct 19",
+     "reply": "Thank you for the kind words. We appreciate you taking the time to write this.",
+     "text": "Friendly team and no pressure. Easy to get an appointment."},
+    {"id": "y2", "platform": "Yelp", "stars": 4, "who": "Jo B.", "date": "Oct 15",
+     "reply": "Thank you for the feedback. We have passed it to the team.",
+     "text": "Clean office and helpful staff. The wait was a bit long."},
+    {"id": "g4", "platform": "Google", "stars": 5, "who": "Omar H.", "date": "Oct 9",
+     "reply": "Thank you. Comments like this mean a lot to everyone here.",
+     "text": "Calm, kind and professional."}
+  ],
+  "fixture_drafts": {
+    "g1": {
+      "first": {"reply": "Hi Dana, we are sorry your crown appointment ran late. We promise your next visit will be on time.", "facts_used": []},
+      "rewrite": {"reply": "Thank you for telling us about this. A long wait with no update is not the experience we want for anyone, and we are sorry. We cannot talk about any visit details online, but we would like to hear more and put things right. Please call our office on (555) 010-0142 and ask for the office manager.", "facts_used": ["phones"]}
+    },
+    "g2": {"first": {"reply": "Thank you for the kind words about our team and our office. Comments like this mean a lot to everyone here.", "facts_used": []}},
+    "y1": {"first": {"reply": "Thank you for sharing this. We are glad online booking is easy to use. When the front lot is full, there is extra parking behind our building.", "facts_used": ["parking"]}},
+    "y3": {"first": {"reply": "", "facts_used": [], "escalate": true, "escalate_reason": "Mentions a billing problem and legal action."}}
+  }
+}
