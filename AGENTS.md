@@ -6,24 +6,23 @@ This repository is **public-facing**. Keep everything in it generic.
 
 ## Layout
 
-| Path | What |
-|---|---|
-| `app/service.py` | Orchestrator for both kinds of change (reply, ad draft): propose, edit, approve, reject, execute, verify |
-| `app/domain.py` | The seven states and allowed moves |
-| `app/policy.py` | Deterministic rules: replies (no patient confirmation, promises, health advice, names, unknown contacts), the "needs a person" rule, ad wording (`check_ad`) and the picture gate (`check_image`) |
-| `app/audit.py` | Hash-chained, append-only audit log (SHA-256) |
-| `app/canonical.py` | Canonical JSON and hashing |
-| `app/store.py` | SQLite storage; nested transactions |
-| `app/providers/sandbox.py` | Sandbox Google provider (writable), manual Yelp hand-off (read-only), sandbox ad account (paused drafts only; no activate method, no budget column) |
-| `app/muse/client.py` | OpenAI SDK pointed at the Meta Model API (Responses API, image generation); records token usage and cost |
-| `app/muse/loop.py` | Shared capped tool loop and argument parsing |
-| `app/muse/reviews.py` | Reply drafter: tool loop, strict structured output; fixture drafter for tests |
-| `app/muse/ads.py` | Ad studio: Spark writes the ad, Muse Image makes 3 pictures, Spark vision reports what each shows; fixture studio for tests |
-| `app/api.py`, `app/main.py`, `app/wiring.py` | FastAPI endpoints, static files, assembly from settings |
-| `app/fixtures/sample.json` | Fictional practice, reviews and canned drafts |
-| `web/index.html` | The interface (single file, generated; do not hand-edit) |
-| `spike/` | First Muse API tests and `RESULTS.md` |
-| `tests/` | Offline tests (`test_core`, `test_api`, `test_ads`), plus opt-in live tests |
+Code is in layers. Imports go only downward: a layer may import itself and any layer with a lower number, never a higher one. `tests/architecture/test_layers.py` checks this from the source (with `ast`) and fails the build on a violation.
+
+| # | Layer | Package | What it does |
+|---|---|---|---|
+| 1 | core | `app/core/` | `domain` (the seven states and allowed moves), `errors`, `canonical` (canonical JSON, SHA-256), `payload` (the exact content of a change and its hash), `audit` (hash-chained, append-only log), `store` (SQLite, nested transactions), `proposals` (read and move proposal rows), `messages` (plain-language wording) |
+| 2 | providers | `app/providers/` | `read.py`: `SandboxReader`, the read-only view (read and list reviews and ads). `sandbox.py`: the write side (Google writable, Yelp a manual hand-off, the sandbox ad account with no activate method and no budget column). `seed.py`: sample-data loaders |
+| 3 | verification | `app/verification/` | `policy.py`: deterministic rules for replies, the "needs a person" rule, ad wording, the picture gate. `readback.py`: pure comparisons (approved content equals stored content, preconditions, read-back). Pure; never imports agents |
+| 4 | agents | `app/agents/` | The Muse client (`client.py`), the capped tool loop (`loop.py`), the reply drafter (`reviews.py`), the ad studio (`ads.py`), their fixture versions for tests, and `context.py`, the read-only context Muse reads through. Agents get no provider write side and never import providers or executors |
+| 5 | workflows | `app/workflows/` | `propose`, `edit`, `reject`, `queries`, `demo`, and `approval_gate` (the only place an `ApprovedAction` is made). `runtime.py` holds shared state: a read-only provider view, never a write handle |
+| 6 | executors | `app/executors/` | `executor.py`: the only code that holds a provider write handle. Takes an `ApprovedAction`, recomputes the content hash, re-reads the world, writes, reads back |
+| 7 | api | `app/api.py`, `app/main.py`, `app/wiring.py`, `app/service.py` | FastAPI endpoints, static files, assembly from settings. `service.py` is a thin `Orchestrator` facade that only delegates to workflows and the executor |
+
+Other paths: `app/fixtures/sample.json` (fictional practice, reviews and canned drafts), `web/index.html` (the interface; single file, generated; do not hand-edit), `spike/` (first Muse API tests and `RESULTS.md`).
+
+Extra import rules (each is a test): agents do not import providers or executors; verification does not import agents; workflows import executors only through the approval gate module; only `app/providers/` and `app/executors/` name `post_reply` or `create_paused_draft`.
+
+Tests: `tests/unit/` (rules, hashing, audit, store, drafters with fakes, pure read-back), `tests/integration/` (reply and ad flows, approval gate, HTTP), `tests/architecture/` (layer rules), `tests/live/` (opt-in, real Muse).
 
 ## Run and test
 
@@ -38,7 +37,7 @@ Settings come from the environment: `DRAFTER` (`fixture` default, or `muse`), `M
 
 ## Safety invariants (do not weaken; tests cover each)
 
-1. **Muse has no write tool.** It can read through three read tools and return a structured draft. Posting is done by the executor after approval.
+1. **Muse has no write tool.** It can read through three read tools and return a structured draft. Posting is done by the executor after approval. Agents are handed a read-only context and never import the provider write side.
 2. **An approval is bound to a SHA-256 of the exact change.** A different hash is refused and audited. Editing a reply changes its hash.
 3. **The executor re-reads before writing.** If the review changed or already has a reply, it writes nothing (`precondition_changed`).
 4. **Verification is an independent read**, not the write response.
@@ -50,6 +49,7 @@ Settings come from the environment: `DRAFTER` (`fixture` default, or `muse`), `M
 10. **This app cannot spend money or switch an ad on.** The ad account has no activate method and no budget column, and its status column only accepts `paused`.
 11. **A picture is used only if code says every check passed.** Spark vision reports what it sees; `policy.check_image` decides. The picture's SHA-256 is inside the approved hash, so a different picture needs a new OK, and the executor re-checks the stored bytes before saving.
 12. **Keys never leave the environment.** Do not log, print, store or commit `MODEL_API_KEY`.
+13. **Writes happen only through the approval gate: the executor recomputes the content hash and refuses on any difference.** Only `workflows/approval_gate.py` can make an `ApprovedAction`; the executor takes nothing else. Before it writes, it rebuilds the stored change, hashes it, and compares with the approved hash and the stored hash. A difference means `FAILED` with reason `approved_content_changed`, an `execution.refused` audit entry, and nothing written.
 
 ## Meta Model API notes (checked against Meta's docs, Oct 2026)
 

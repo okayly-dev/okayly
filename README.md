@@ -15,7 +15,7 @@ Status: work in progress. The demo uses a fictional practice and sample reviews.
 
 ## Layout
 
-- `index.html`: interface prototype (open in a browser, no build step)
+- `web/index.html`: the interface (single file, served by the app)
 - `spike/`: first test script and results for the Muse API calls
 
 ## Run it
@@ -27,7 +27,12 @@ Status: work in progress. The demo uses a fictional practice and sample reviews.
 
 ## What the code does
 
-- `app/service.py`: propose, approve, execute and verify. An approval is bound to a SHA-256 of the exact change; a stale change is refused.
-- `app/audit.py`: hash-chained, append-only log.
-- `app/policy.py`: rules every reply must pass (no patient confirmation, no promises, no health advice, no names).
-- `app/muse/`: Muse Spark through the Responses API. Muse reads data only through three read tools and returns a structured draft.
+Code is in layers, and imports only go downward (checked by a test):
+
+- `app/core/`: states, canonical hashing, the hash-chained audit log, SQLite storage.
+- `app/providers/`: a read-only view of reviews and ads, and the sandbox write side that only the executor uses.
+- `app/verification/`: fixed rules every reply, ad and picture must pass, and pure read-back comparisons.
+- `app/agents/`: Muse Spark through the Responses API. Muse reads data only through read tools and returns a structured draft.
+- `app/workflows/`: propose, edit, reject, and the approval gate. An approval is bound to a SHA-256 of the exact change; a stale change is refused.
+- `app/executors/`: the only code that writes. It recomputes the content hash from what is stored and refuses if it differs from what was approved, re-reads before writing, then reads back to verify.
+- `app/api.py`, `app/wiring.py`, `app/service.py`: HTTP endpoints, assembly, and a thin facade.
