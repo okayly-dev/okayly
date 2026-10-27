@@ -1,0 +1,801 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Orchestrator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout concept: deep navy app bar, soft blue-gray canvas, white cards. Recommendations get an accent rule so they outrank metrics, and metrics outrank supporting notes. Technical detail stays behind the "Under the hood" switch. Light theme only. */
+:root{
+  color-scheme:light;
+  --bg:#F3F7FB; --surface:#FFFFFF; --surface-2:#F6F9FC; --tint:#EAF6FD; --ink:#16232C; --ink-2:#55657A; --ink-3:#5E6E82;
+  --line:#DCE5EE; --line-2:#E8EEF4;
+  --primary:#0077B0; --primary-ink:#00638F; --primary-hover:#009BDF; --on-primary:#FFFFFF; --navy:#06293B; --navy-2:#0B3550;
+  --accent:#5CC8F0; --highlight:#8FD8F5; --pill:#DDEEF7;
+  --good-bg:#E3F2EA; --good-ink:#14653F; --good:#1F7A4D;
+  --bad-bg:#FBE4E1; --bad-ink:#8F1D16; --bad:#B3261E;
+  --warn-bg:#FBEFCF; --warn-ink:#6B4A00;
+  --info-bg:#E1F0F8; --info-ink:#00587F;
+  --mute-bg:#E9EEF2; --mute-ink:#46535C;
+  --c-news:#0077B0; --t-news:#E3F1FA; --c-near:#1F7A4D; --t-near:#E3F2EA; --c-industry:#6B5BB0; --t-industry:#EEEAF8; --c-local:#4F7391; --t-local:#E8EEF4; --c-reviews:#A66A12; --t-reviews:#FBF0D9;
+  --r-card:16px; --r-in:12px; --r-btn:12px;
+  --shadow:0 1px 2px rgba(6,41,59,.05),0 8px 24px -12px rgba(6,41,59,.14);
+  --shadow-up:0 2px 4px rgba(6,41,59,.06),0 14px 30px -12px rgba(6,41,59,.22);
+  --font:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+
+}
+*{box-sizing:border-box}
+body{background:#F3F7FB linear-gradient(180deg,#E6F1F9 0,#F3F7FB 420px) no-repeat;color:var(--ink);font:400 17px/1.55 var(--font);margin:0;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:800;text-wrap:balance;letter-spacing:-.015em}
+h1{font-size:clamp(30px,4.6vw,42px);line-height:1.12;letter-spacing:-.025em}
+h2{font-size:22px;line-height:1.25}
+h3{font-size:17px}
+p{margin:0}
+button{font:inherit;color:inherit}
+input{font:inherit}
+:focus-visible{outline:3px solid var(--primary-hover);outline-offset:2px;border-radius:8px}
+.top :focus-visible{outline-color:var(--highlight)}
+.muted{color:var(--ink-2)} .small{font-size:15px} .num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:12px}
+
+/* app bar */
+.top{background:linear-gradient(180deg,#06293B 0,#082F46 100%);border-bottom:1px solid rgba(143,216,245,.14);position:relative;z-index:5}
+.wrap{max-width:1160px;margin:0 auto;padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.top .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding-block:12px}
+.brand{display:flex;align-items:center;gap:12px}
+html[data-edition="hackathon"]{--mark:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 28 28%27%3E%3Crect width=%2728%27 height=%2728%27 rx=%277%27 fill=%27%230077B0%27/%3E%3Cpath d=%27M7 14.5l4.5 4.5L21 9%27 fill=%27none%27 stroke=%27white%27 stroke-width=%273.4%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E")}
+.mark{width:38px;height:38px;border-radius:10px;background:#fff var(--mark) center/28px 28px no-repeat;box-shadow:0 1px 2px rgba(0,0,0,.25);flex:none}
+.wm{font-weight:800;font-size:22px;letter-spacing:-.5px;color:#fff;line-height:1}
+.wm b{color:var(--highlight);font-weight:800}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-left:8px}
+.tabs button{white-space:nowrap;background:none;border:0;border-radius:10px;padding:9px 16px;font-weight:600;font-size:17px;color:rgba(255,255,255,.74);cursor:pointer;position:relative}
+.tabs button:hover{background:rgba(255,255,255,.08);color:#fff}
+.tabs button[aria-current="page"]{background:rgba(255,255,255,.13);color:#fff;font-weight:700}
+.tabs button[aria-current="page"]::after{content:"";position:absolute;left:16px;right:16px;bottom:3px;height:2px;border-radius:2px;background:var(--accent)}
+.tabs .n{background:var(--accent);color:var(--navy);border-radius:999px;font-size:12px;padding:1px 8px;margin-left:8px;font-weight:800}
+.sp{flex:1}
+.sw{display:inline-flex;align-items:center;gap:8px;background:none;border:0;cursor:pointer;font-size:13px;font-weight:600;color:rgba(255,255,255,.58);padding:4px}
+.sw:hover{color:rgba(255,255,255,.85)}
+.sw i{width:34px;height:20px;border-radius:999px;background:rgba(255,255,255,.2);position:relative}
+.sw i::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff}
+.sw[aria-checked="true"]{color:var(--highlight)}
+.sw[aria-checked="true"] i{background:var(--accent)} .sw[aria-checked="true"] i::after{transform:translateX(14px)}
+
+main.wrap{padding-block:36px 88px;display:flex;flex-direction:column;gap:28px}
+.tagrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;color:var(--ink-2);font-weight:600}
+.tag{background:var(--warn-bg);color:var(--warn-ink);font-weight:700;font-size:13px;border-radius:999px;padding:4px 12px}
+.lead{font-size:19px;color:var(--ink-2);margin-top:10px;max-width:68ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:28px 32px;box-shadow:var(--shadow);min-width:0;position:relative}
+.card.soft{background:rgba(255,255,255,.55);box-shadow:none;border-style:solid;border-color:var(--line)}
+.card.feature{border-color:#CBE3F2;overflow:hidden}
+.card.feature::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,var(--primary),var(--accent))}
+.card.brief{background:linear-gradient(180deg,#fff 0,#F7FBFE 100%)}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.card-h h2{margin:0}
+.stack{display:flex;flex-direction:column;gap:24px;min-width:0}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.kind{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);display:block;margin-bottom:4px}
+.back{background:none;border:0;color:var(--primary-ink);font-weight:700;cursor:pointer;padding:0;align-self:flex-start;font-size:16px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px;background:var(--ink-3)}
+.dot-news{background:var(--c-news)} .dot-near{background:var(--c-near)} .dot-industry{background:var(--c-industry)} .dot-local{background:var(--c-local)} .dot-reviews{background:var(--c-reviews)}
+
+/* buttons */
+.btn{display:inline-flex;justify-content:center;align-items:center;background:linear-gradient(180deg,#0A85BF 0,#0077B0 100%);color:var(--on-primary);border:1px solid #006A9C;border-radius:var(--r-btn);padding:14px 24px;font-weight:700;font-size:17px;cursor:pointer;line-height:1.2;box-shadow:0 1px 2px rgba(0,60,90,.25),inset 0 1px 0 rgba(255,255,255,.18)}
+.btn:hover{background:linear-gradient(180deg,#1AA6E2 0,#009BDF 100%);border-color:#0089C4}
+.btn:active{transform:translateY(1px);box-shadow:none}
+.btn.out{background:#fff;color:var(--primary-ink);border:1.5px solid var(--primary);box-shadow:none}
+.btn.out:hover{background:var(--tint);border-color:var(--primary-hover)}
+.btn.quiet{background:#fff;color:var(--ink-2);border:1px solid var(--line);box-shadow:none}
+.btn.quiet:hover{background:var(--surface-2);border-color:#C5D3E0;color:var(--ink)}
+.btn.sm{padding:9px 16px;font-size:15px;border-radius:10px}
+.btn[disabled]{background:var(--mute-bg);border-color:var(--mute-bg);color:var(--ink-3);cursor:not-allowed;box-shadow:none}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+.btns .btn{flex:1 1 240px}
+.linkbtn{background:none;border:0;color:var(--primary-ink);font-weight:700;cursor:pointer;padding:0;font-size:inherit;text-decoration:underline;text-underline-offset:3px}
+
+/* metrics */
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
+.tile{background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-in);padding:18px 20px;display:flex;flex-direction:column;gap:6px}
+.tile .l{color:var(--ink-2);font-size:14px;line-height:1.35;font-weight:500}
+.tile .big{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1.05;color:var(--ink)}
+.tile .up,.tile .down{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-weight:700;font-size:13px;border-radius:8px;padding:3px 10px;line-height:1.3}
+.tile .up{background:var(--good-bg);color:var(--good-ink)} .tile .down{background:var(--bad-bg);color:var(--bad-ink)}
+.tile .up::before{content:"\25B2";font-size:9px} .tile .down::before{content:"\25BC";font-size:9px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;color:var(--ink-2);font-size:14px;margin-top:10px}
+
+.why{margin:10px 0 20px;max-width:80ch}
+.ba{display:grid;gap:12px;margin-bottom:14px}
+.ba.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.b{border-radius:var(--r-in);padding:14px 18px;border:1px solid transparent}
+.b span{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:3px}
+.b.t{background:var(--bad-bg);color:var(--bad-ink);border-color:#F3CFCB} .b.s{background:var(--good-bg);color:var(--good-ink);border-color:#C9E4D5}
+.b.n{background:var(--surface-2);border-color:var(--line);color:var(--ink)}
+.fine{font-size:14.5px;color:var(--ink-2);margin-top:12px}
+
+
+/* upload your own picture or video */
+.drop{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;border:2px dashed #9CCBE4;border-radius:var(--r-in);background:var(--tint);padding:14px 16px;cursor:pointer;position:relative;transition:background-color .18s ease,border-color .18s ease}
+.drop:hover,.drop.over{background:#E3F2FB;border-color:var(--primary)}
+.drop:focus-within{outline:3px solid rgba(0,119,176,.35);outline-offset:2px}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop b{font-size:16px}.drop span{font-size:14px;color:var(--ink-2)}
+.drop .btn{pointer-events:none}
+.upmsg{font-size:14.5px;font-weight:600;color:var(--bad-ink);margin-top:8px}
+.pick.mine .thumb{display:block;border-radius:8px;overflow:hidden;border:1px solid var(--line-2);line-height:0;background:#0b1b24;aspect-ratio:300/180}
+.pick.mine .thumb img,.pick.mine .thumb video{width:100%;height:100%;object-fit:cover;display:block}
+.linkbtn.rep{position:relative;cursor:pointer;overflow:hidden}.linkbtn.rep input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.owns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.lab{font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:14px 0 8px}
+.drop .ico{width:40px;height:40px;border-radius:50%;background:#fff;color:var(--primary);display:grid;place-items:center;font-size:26px;font-weight:600;border:1px solid #CBE3F2;line-height:1;margin-bottom:4px}
+.own{display:flex;flex-direction:column;gap:6px}.own .upinfo{margin-top:0;justify-content:center}
+.tick{display:grid;gap:8px;margin-bottom:10px}
+.tick label{display:flex;gap:12px;align-items:center;background:#fff;border:1.5px solid var(--line);border-radius:var(--r-in);padding:10px 14px;font-size:15px;cursor:pointer}
+.tick label:has(input:checked){border-color:var(--good);background:var(--good-bg)}
+.tick input{width:22px;height:22px;flex:none;accent-color:var(--primary)}
+.upinfo{font-size:13.5px;color:var(--ink-3);display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.clean{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;border:1px dashed #9CCBE4;border-radius:var(--r-in);padding:10px 14px;margin:0 0 10px;background:#fff}
+.clean b{display:block;font-size:15px}.clean span{font-size:14px;color:var(--ink-2)}
+.soon{font-style:normal;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:var(--tint);color:var(--primary-ink);border-radius:999px;padding:2px 8px;margin-left:6px}
+.confirm{display:flex;gap:10px;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-in);padding:10px 14px;font-size:15px;line-height:1.35;cursor:pointer}
+.confirm input{width:22px;height:22px;margin-top:1px;flex:none;accent-color:var(--primary)}
+.phone .pc .m{display:block;width:100%;object-fit:cover;background:#0b1b24}
+.phone.story{max-width:250px}
+
+/* reviews */
+.stars{color:#D98E04;letter-spacing:2px;font-size:17px;white-space:nowrap}.stars i{font-style:normal;color:#D5DEE7}
+.plat{font-size:12px;font-weight:700;letter-spacing:.04em;border-radius:999px;padding:2px 10px;text-transform:uppercase;border:1px solid transparent}
+.plat.g{background:var(--tint);color:var(--primary-ink);border-color:#CBE3F2}.plat.y{background:var(--surface-2);color:var(--ink-2);border-color:var(--line)}
+h2+.rq,.kind+.rq{margin-top:14px}.rq{margin:0 0 14px;background:var(--surface-2);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:var(--r-in);padding:14px 16px}
+.rq .rqh{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}.rq p{font-size:16px;line-height:1.5;margin:0}
+.dist{display:grid;gap:6px;margin-top:20px;max-width:560px}.drow{display:grid;grid-template-columns:64px minmax(0,1fr) 34px;gap:10px;align-items:center;font-size:14px;color:var(--ink-2)}
+.drow i{display:block;height:10px;border-radius:6px;background:linear-gradient(90deg,var(--primary),var(--accent));width:var(--w)}.drow b{text-align:right;color:var(--ink)}
+textarea.inp{resize:vertical;min-height:110px;line-height:1.5;font:inherit}
+.badlist{margin:10px 0 0;padding:0;list-style:none;color:var(--bad-ink);font-weight:600;font-size:14.5px;display:grid;gap:4px}
+.conn{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:18px}
+@media (max-width:620px){.conn{grid-template-columns:minmax(0,1fr)}}
+/* ad picture options */
+.picks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0 0 8px}
+.pick{background:#fff;border:1.5px solid var(--line);border-radius:var(--r-in);padding:10px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:8px;position:relative}
+.pick:hover{border-color:#9CCBE4;box-shadow:var(--shadow-up)}
+.pick[aria-pressed="true"]{border-color:var(--primary);background:var(--tint);box-shadow:0 0 0 3px rgba(0,119,176,.16)}
+.pick[aria-pressed="true"]::after{content:"\2713";position:absolute;top:16px;right:16px;width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;font-size:14px;font-weight:800;display:grid;place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.pick>span:first-child{display:block;border-radius:8px;overflow:hidden;border:1px solid var(--line-2);line-height:0}
+.pick svg{width:100%;height:auto;display:block}
+.pick b{font-size:16px;padding:0 2px}
+.res{font-size:13.5px;font-weight:700;padding:0 2px 2px}
+.res.ok{color:var(--good-ink)} .res.warn{color:var(--warn-ink)}
+.picknote{font-size:14px;color:var(--ink-3);margin:8px 0 18px}
+
+.status{display:inline-block;font-weight:700;font-size:13px;border-radius:999px;padding:4px 12px;white-space:nowrap}
+.s-ready{background:var(--info-bg);color:var(--info-ink)}
+.s-done{background:var(--good-bg);color:var(--good-ink)}
+.s-stop{background:var(--bad-bg);color:var(--bad-ink)}
+.s-idle{background:var(--mute-bg);color:var(--mute-ink)}
+.s-warn{background:var(--warn-bg);color:var(--warn-ink)}
+
+.prog{display:flex;flex-direction:column;gap:12px;margin:6px 0 2px}
+.prog div{display:flex;gap:12px;align-items:center;color:var(--ink-3);font-weight:600;font-size:18px}
+.prog div.on{color:var(--ink)} .prog div.fin{color:var(--good-ink)}
+.prog b{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--mute-bg);font-size:14px;flex:none}
+.prog .fin b{background:var(--good);color:#fff} .prog .on b{background:var(--primary);color:#fff}
+.callout{border-radius:var(--r-in);padding:16px 18px}
+.callout.good{background:var(--good-bg);color:var(--good-ink)} .callout.bad{background:var(--bad-bg);color:var(--bad-ink)}
+.callout.info{background:var(--info-bg);color:var(--info-ink)} .callout.warn{background:var(--warn-bg);color:var(--warn-ink)}
+.callout b{display:block;font-size:19px;margin-bottom:2px}
+
+details{border-top:1px solid var(--line-2);margin-top:20px;padding-top:14px}
+details summary{cursor:pointer;font-weight:700;color:var(--primary-ink);padding:2px 0}
+details[open] summary{margin-bottom:12px}
+details.plainbox{border:1px solid var(--line);border-radius:var(--r-card);background:#fff;padding:16px 24px;margin-top:0;box-shadow:var(--shadow)}
+ul.plain{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.checks li{display:flex;gap:10px}
+.checks .ok{color:var(--good);font-weight:800}
+.checks .warn{color:var(--warn-ink);font-weight:800}
+.chips{display:flex;gap:10px;flex-wrap:wrap}
+.hashchip{font-family:var(--mono);font-size:12px;background:var(--info-bg);color:var(--info-ink);border-radius:6px;padding:2px 8px}
+
+/* ad studio */
+.studio{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:36px;align-items:start}
+.pv{display:flex;flex-direction:column;gap:10px;align-items:center;background:linear-gradient(180deg,var(--tint),#F3F7FB);border:1px solid var(--line-2);border-radius:var(--r-card);padding:20px}
+.pvlab{font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--primary-ink);background:#fff;border-radius:999px;padding:3px 12px;border:1px solid #CBE3F2}
+.phone{border:1px solid var(--line);border-radius:18px;background:#fff;overflow:hidden;box-shadow:0 12px 28px -10px rgba(6,41,59,.28),0 2px 4px rgba(6,41,59,.06);max-width:340px;width:100%}
+.phone .hd{display:flex;gap:10px;align-items:center;padding:12px 14px}
+.phone .av{width:34px;height:34px;border-radius:50%;background:var(--primary);color:#fff;display:grid;place-items:center;font-weight:800}
+.phone .hd b{display:block;font-size:15px;line-height:1.2}
+.phone .hd span.s{font-size:12px;color:var(--ink-3)}
+.phone .pt{padding:0 14px 12px;font-size:15px;line-height:1.45}
+.phone .pc svg{display:block;width:100%;height:auto}
+.phone .ft{display:flex;gap:10px;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--surface-2);border-top:1px solid var(--line-2)}
+.phone .ft .dom{display:block;font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em}
+.phone .ft{flex-wrap:wrap}.phone .ft>div{min-width:0;flex:1 1 140px}.phone .ft b{font-size:15px;line-height:1.25;overflow-wrap:anywhere}
+.phone .cta{background:var(--mute-bg);color:var(--ink);font-weight:700;font-size:14px;border-radius:8px;padding:8px 12px;white-space:nowrap}
+.ctl{margin-bottom:24px}
+.ctl h3{margin-bottom:10px}
+.opt{background:#fff;border:1.5px solid var(--line);border-radius:999px;padding:8px 18px;font-weight:600;cursor:pointer;font-size:15.5px;color:var(--ink-2)}
+.opt:hover{border-color:#9CCBE4;color:var(--ink)}
+.opt[aria-pressed="true"]{border-color:var(--primary);background:var(--primary);color:#fff;font-weight:700}
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px;background:var(--tint);padding:4px;border-radius:14px;border:1px solid #D4E8F4}
+.seg .opt{border:0;background:transparent;border-radius:10px;padding:8px 16px}
+.seg .opt:hover{background:rgba(255,255,255,.6)}
+.seg .opt[aria-pressed="true"]{background:#fff;color:var(--primary-ink);box-shadow:0 1px 3px rgba(6,41,59,.18)}
+.thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+
+.li{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:16px 0;border-top:1px solid var(--line-2)}
+.li:first-child{border-top:0}
+.li b{display:block;font-size:17.5px}
+.timeline{list-style:none;margin:0;padding:0}
+.timeline li{display:grid;grid-template-columns:84px minmax(0,1fr);gap:12px;padding:12px 0;border-top:1px solid var(--line-2)}
+.timeline li:first-child{border-top:0}
+.timeline time{color:var(--ink-3);font-weight:600;font-size:15px;font-variant-numeric:tabular-nums}
+.under{border:1.5px dashed #6FB6D8;border-radius:var(--r-card);padding:18px 22px;background:rgba(234,246,253,.6)}
+.under h3{color:var(--primary-ink);margin-bottom:6px}
+label.ck{display:flex;gap:10px;align-items:flex-start;margin-top:10px;font-size:16px}
+label.ck input{width:20px;height:20px;margin-top:2px;accent-color:var(--primary)}
+table{border-collapse:collapse;width:100%}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;color:var(--ink-3);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top;font-size:15px}
+.scroll{overflow-x:auto}
+
+/* daily audio briefing */
+.player{display:flex;gap:20px;align-items:center;flex-wrap:wrap;background:radial-gradient(120% 160% at 0% 0%,#F4FBFF 0,#DDF0FB 55%,#CBE7F7 100%);border:1px solid #BFE0F2;border-radius:var(--r-card);padding:20px 24px}
+.play{width:64px;height:64px;border-radius:50%;border:0;background:linear-gradient(180deg,#14A0DC 0,#0077B0 100%);color:#fff;cursor:pointer;display:grid;place-items:center;flex:none;box-shadow:0 0 0 6px rgba(0,119,176,.14),0 10px 18px -6px rgba(0,119,176,.55)}
+.play:hover{background:linear-gradient(180deg,#2BB4EE 0,#009BDF 100%)}
+.play[disabled]{background:var(--mute-bg);box-shadow:none;cursor:not-allowed}
+.play svg{width:26px;height:26px;fill:#fff}
+.pl-body{flex:1 1 260px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pl-body b{font-size:19px;color:var(--ink);letter-spacing:-.01em}
+.wave{display:flex;align-items:center;gap:3px;height:38px;margin-top:8px;overflow:hidden}
+.wave i{flex:1 1 0;min-width:0;max-width:7px;border-radius:3px;background:rgba(0,99,143,.26);display:block}
+.wave i.on{background:var(--primary)}
+.pl-ctl{display:flex;gap:8px;flex-wrap:wrap}
+.pl-ctl .opt{padding:6px 14px;font-size:14.5px;background:rgba(255,255,255,.85);border-color:#BFE0F2}
+.pl-ctl .opt:hover{background:#fff;border-color:var(--primary-hover)}
+.tx{display:flex;flex-direction:column;gap:6px;font-size:16px}
+.tx span{padding:2px 8px;border-radius:6px}
+.tx span.now{background:var(--warn-bg);color:var(--warn-ink)}
+
+/* news feed */
+.feed{display:grid;grid-template-columns:minmax(0,660px) minmax(0,1fr);gap:36px;align-items:start}
+.rail{position:sticky;top:16px;display:flex;flex-direction:column;gap:18px}
+.dayh{font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);margin:10px 0 14px;display:flex;align-items:center;gap:12px}
+.dayh::after{content:"";flex:1;height:1px;background:var(--line)}
+.post{--c:var(--c-news);--ct:var(--t-news);background:#fff;border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;box-shadow:var(--shadow)}
+.post[data-k="near"]{--c:var(--c-near);--ct:var(--t-near)} .post[data-k="industry"]{--c:var(--c-industry);--ct:var(--t-industry)} .post[data-k="local"]{--c:var(--c-local);--ct:var(--t-local)} .post[data-k="reviews"]{--c:var(--c-reviews);--ct:var(--t-reviews)}
+.post .ph{display:flex;gap:12px;align-items:center;padding:14px 18px;flex-wrap:wrap}
+.post .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;flex:none;background:var(--c)}
+.post .ph b{display:block;line-height:1.2}
+.post .ph span.t{font-size:13.5px;color:var(--ink-2)}
+.post .ph span.t i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:6px}
+.thumb{height:128px;display:flex;align-items:center;justify-content:center;position:relative;background:radial-gradient(circle at 88% 18%,rgba(255,255,255,.75) 0 54px,transparent 55px),radial-gradient(circle at 8% 110%,rgba(255,255,255,.5) 0 70px,transparent 71px),var(--ct);border-block:1px solid var(--line-2)}
+.thumb svg{height:88px;width:auto;display:block}
+.thumb .cap{position:absolute;left:14px;bottom:10px;font-size:12px;font-weight:700;color:var(--ink-2);background:rgba(255,255,255,.85);border-radius:999px;padding:2px 10px}
+.post .body{padding:18px 22px 6px}
+.post h3{font-size:20px;line-height:1.3;margin-bottom:6px;letter-spacing:-.015em}
+.post .w{background:var(--ct);border-left:3px solid var(--c);border-radius:0 var(--r-in) var(--r-in) 0;padding:12px 16px;margin:14px 0 4px;font-size:15.5px;color:var(--ink)}
+.post .w b{display:block;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--c);margin-bottom:2px}
+.post .src{font-size:13.5px;color:var(--ink-3);margin-top:10px}
+.post .act{display:flex;gap:8px;flex-wrap:wrap;padding:14px 18px 18px}
+.post .act .btn.sm{padding:7px 14px;font-size:14.5px}
+.post .act .btn.quiet[aria-pressed="true"]{background:var(--tint);border-color:var(--primary);color:var(--primary-ink)}
+.quietday{border:1.5px dashed #C5D3E0;border-radius:var(--r-in);padding:16px 18px;color:var(--ink-2);margin-bottom:14px;background:rgba(255,255,255,.5)}
+
+/* configure */
+.cfg-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;align-items:start}
+.trow{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--line-2)}
+.trow:first-of-type{border-top:0}
+.trow b{display:block;font-size:17px}
+.trow span.d{color:var(--ink-2);font-size:15px}
+.tg{width:52px;height:30px;border-radius:999px;border:0;background:#CBD6E1;position:relative;cursor:pointer;flex:none}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.tg[aria-checked="true"]{background:var(--primary)} .tg[aria-checked="true"]::after{transform:translateX(22px)}
+.wl{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--line-2)}
+.wl:first-child{border-top:0}
+.inp{border:1.5px solid var(--line);border-radius:10px;padding:11px 14px;background:#fff;color:var(--ink);width:100%}
+.inp:hover{border-color:#B9CBDB}
+.inp:focus{border-color:var(--primary);outline:3px solid rgba(0,155,223,.25);outline-offset:0}
+.fld{display:flex;flex-direction:column;gap:6px;flex:1 1 200px}
+.fld label{font-weight:700;font-size:15px}
+.savedchip{font-weight:700;color:var(--good-ink);background:var(--good-bg);border-radius:999px;padding:4px 12px;font-size:14px;visibility:hidden}
+.savedchip.on{visibility:visible}
+.sumbox{background:linear-gradient(135deg,#EAF6FD,#DCEFFA);color:var(--info-ink);border:1px solid #C4E1F1;border-radius:var(--r-in);padding:14px 18px}
+
+/* motion: only where it helps, and never when the visitor asks for less */
+@media (prefers-reduced-motion:no-preference){
+  .btn,.opt,.pick,.tabs button,.tg,.tg::after,.sw i,.sw i::after,.inp{transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease,color .18s ease,transform .18s ease}
+  .pick:hover,.post:hover{transform:translateY(-2px)}
+  .post{transition:box-shadow .2s ease,transform .2s ease}
+  .post:hover{box-shadow:var(--shadow-up)}
+  .wave i{transition:background-color .2s ease}
+}
+
+@media (max-width:980px){.feed{grid-template-columns:minmax(0,1fr)}.rail{position:static;order:-1}.cfg-grid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.studio{grid-template-columns:minmax(0,1fr)}.ba.two{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:720px){.top .wrap{gap:10px 12px}.brand{order:1}.sw{order:2;margin-left:auto}.sp{display:none}.tabs{order:3;width:100%;margin-left:0}.tabs button{flex:1 1 0;text-align:center;padding:9px 6px;font-size:16px}.tabs button[aria-current="page"]::after{left:12px;right:12px}}
+@media (max-width:420px){.tabs button{font-size:15px;padding:9px 4px}.tabs .n{margin-left:5px;padding:1px 6px}.wave{gap:2px}.wave i:nth-child(2n){display:none}}
+@media (max-width:620px){.pl-body{flex-basis:170px}.tiles{grid-template-columns:minmax(0,1fr)}.picks,.thumbs,.owns{grid-template-columns:minmax(0,1fr)}.timeline li{grid-template-columns:minmax(0,1fr);gap:2px}.card{padding:22px 18px}.card-h .btn{width:100%}.player{padding:16px}.pl-ctl{width:100%}.sw span{display:none}.tile .big{font-size:34px}main.wrap{padding-block:26px 64px}}
+</style>
+
+<header class="top"><div class="wrap"><div class="brand"><span class="mark" id="mark" role="img" aria-label="Logo mark"></span><span class="wm" id="wm"></span></div><nav class="tabs" id="tabs" aria-label="Main"></nav><span class="sp"></span><button class="sw" id="sw" role="switch" aria-checked="false" aria-label="Under the hood" data-act="under"><span>Under the hood</span><i></i></button></div></header>
+<main class="wrap" id="main"></main>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>Number(n).toLocaleString('en-US');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function h53(str,seed=0){let h1=0xdeadbeef^seed,h2=0x41c6ce57^seed;for(let i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677)}
+  h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+  return (4294967296*(2097151&h2)+(h1>>>0)).toString(16).padStart(14,'0')}
+
+/* ---- edition: our version or the generic hackathon version ---- */
+const BRANDS={hackathon:{title:'Okayly',wm:'Okay<b>ly</b>',mark:'Okayly logo mark'}};
+const EDITION='hackathon';
+function applyBrand(){const b=BRANDS[EDITION];document.title=b.title;document.documentElement.dataset.edition=EDITION;$('#wm').innerHTML=b.wm;$('#mark').setAttribute('aria-label',b.mark)}
+/* ---- sample data (fictional) ---- */
+const PRACTICE='Brightwood Family Dental';
+/* ---- sample reviews (all fictional) ---- */
+const RSTAT={avg:'4.6',prevAvg:'4.5',total:112,newN:9,prevNew:6,answered:5,prevAnswered:5,prevOf:6,wait:3,prevWait:2,dist:[84,17,5,3,3]};
+const REVIEWS=[
+ {id:'g1',key:'rv1',actId:'act_5d12',platform:'Google',stars:2,who:'Dana M.',date:'Oct 25',reply:null,
+  text:'Waited 45 minutes past my crown appointment time and nobody told me why. The front desk was friendly but I felt forgotten. Not sure I will come back.',
+  why:'Unhappy reviews are best followed by a personal call. This reply is short, says sorry and moves the conversation offline.',
+  blocked:'Hi Dana, we are sorry your crown appointment ran late. We promise your next visit will be on time.',
+  draft:'Thank you for telling us about this. A long wait with no update is not the experience we want for anyone, and we are sorry. We cannot talk about any visit details online, but we would like to hear more and put things right. Please call our office on (555) 010‑0142 and ask for the office manager.'},
+ {id:'g2',key:'rv2',actId:'act_5d13',platform:'Google',stars:5,who:'Priya S.',date:'Oct 24',reply:null,
+  text:'Everyone was so kind and the office is spotless. My kids actually like coming here!',
+  draft:'Thank you for the kind words about our team and our office. Comments like this mean a lot to everyone here.'},
+ {id:'y1',key:'rv3',actId:'act_5d14',platform:'Yelp',stars:4,who:'Marcus T.',date:'Oct 22',reply:null,
+  text:'Great cleaning and online booking was easy. Parking in the front lot is tight though.',
+  fact:'Fact used, from your practice details: extra parking behind the building.',
+  draft:'Thank you for sharing this. We are glad online booking is easy to use. When the front lot is full, there is extra parking behind our building.'},
+ {id:'y3',key:null,platform:'Yelp',stars:1,who:'Sam K.',date:'Oct 21',reply:null,
+  text:'I was billed twice and nobody will return my calls. I am talking to a lawyer.',
+  flag:'It mentions a billing problem and a lawyer.'},
+ {id:'g3',key:null,platform:'Google',stars:5,who:'Lena R.',date:'Oct 19',reply:'Thank you for the kind words. We appreciate you taking the time to write this.',text:'Friendly team and no pressure. Easy to get an appointment.'},
+ {id:'y2',key:null,platform:'Yelp',stars:4,who:'Jo B.',date:'Oct 15',reply:'Thank you for the feedback. We have passed it to the team.',text:'Clean office and helpful staff. The wait was a bit long.'},
+ {id:'g4',key:null,platform:'Google',stars:5,who:'Omar H.',date:'Oct 9',reply:'Thank you. Comments like this mean a lot to everyone here.',text:'Calm, kind and professional.'}];
+const stars=n=>`<span class="stars" role="img" aria-label="${n} out of 5 stars">${'★'.repeat(n)}<i>${'★'.repeat(5-n)}</i></span>`;
+const platTag=p=>`<span class="plat ${p==='Yelp'?'y':'g'}">${p}</span>`;
+/* Demo check on reply text. The real check is a backend rule set plus Muse; this shows the idea. */
+function lintReply(t){const x=(t||'').trim(),o=[];if(!x)return ['Write a reply first.'];
+  if(x.length>600)o.push('Keep it under 600 characters. Yours is '+x.length+'.');
+  if(/\b(your|the)\s+(visit|appointment|treatment|procedure|crown|root canal|implant|filling|cleaning|extraction|surgery|whitening|braces|invisalign)\b|\bas (our|a) patient\b|\bour patient\b|\byou (came|visited|were seen)\b/i.test(x))o.push('Do not mention a visit or a treatment. That confirms the person is a patient, which can break privacy rules.');
+  if(/(guarantee|refund|free of charge|we promise|100%|next visit will)/i.test(x))o.push('Do not promise results, refunds, free work or future service.');
+  if(/\b(pain|infection|antibiotic|medication|swelling)\b|you should (take|use|try)/i.test(x))o.push('Do not give health advice.');
+  return o}
+const AD_NAME0='Dental implants: what to expect';
+const TONES={friendly:{label:'Friendly',text:'Thinking about dental implants? Learn what the process involves, how long it takes and which questions to ask at a consultation.'},
+  calm:{label:'Calm and reassuring',text:'Questions about dental implants are normal. See what the process involves and what to ask, at your own pace.'},
+  direct:{label:'Straight to the point',text:'Dental implants: how the process works, how long it takes and what to ask before you decide.'}};
+const SHAPES={wide:'Wide',square:'Square',story:'Story (tall)'};const RATIO={wide:'1.91/1',square:'1/1',story:'9/16'};const RVAL={wide:1.91,square:1,story:.5625};
+let UP=null,UPMSG='',UPCLEAN=false;
+const CHECKS=['No before-and-after photos','No claims about a person\'s health','No promised results','Easy to read on a phone'];
+const PICS={U:{name:'Your own file',r:[1,1,1,1]},A:{name:'Calm and simple',r:[1,1,1,1]},B:{name:'Checklist',r:[1,1,1,0]},C:{name:'Big question',r:[1,1,1,1]}};
+const mediaOf=()=>UP?{kind:UP.kind,name:UP.name,size:UP.size}:null;
+const mb=n=>n<1048576?Math.max(1,Math.round(n/1024))+' KB':(n/1048576).toFixed(1)+' MB';
+const passN=k=>PICS[k].r.filter(Boolean).length;
+const resText=k=>passN(k)===4?'4 of 4 checks passed':'3 of 4 checks passed: the text is small on a phone';
+
+/* ---- news feed (all items are fictional samples) ---- */
+const TOPICS={news:{label:'Search and ad news',d:'Changes to Google search and to ad rules that could affect you.'},near:{label:'Nearby practices',d:'What the practices you watch change on their public websites.'},
+  industry:{label:'Dental industry news',d:'Guidance and announcements from dental groups.'},local:{label:'Local news',d:'Things happening around Springfield that patients may care about.'},reviews:{label:'Review sites and directories',d:'Changes to sites where patients find and rate practices.'}};
+const KIND_LABEL={news:'Search and ad news',near:'Nearby practice',industry:'Dental industry',local:'Local news',reviews:'Review sites'};
+const FEED=[
+ {id:'f1',day:0,kind:'near',practice:'Springfield Smiles',important:true,source:'Springfield Smiles',time:'6:00 am',conf:'Seen on their website',title:'Springfield Smiles added a page about dental implant costs',summary:'A new page on their site explains what goes into implant pricing. It was added on Oct 25.',why:'People searching "dental implant cost" may now find them before you. The new ad answers that question.',link:'springfieldsmiles.example/implant-costs',idea:'Answer the implant cost question in a new ad',glyph:'pin'},
+ {id:'f2',day:0,kind:'news',important:false,source:'Example Health Ads News',time:'6:00 am',conf:'From the source',title:'Healthcare ad rules were updated',summary:'The update adds limits on how ads may talk about treatment results.',why:'Your new implants ad already avoids this, so there is nothing to change. We added the rule to our ad checks.',link:'example-news.test/healthcare-ads',idea:null,glyph:'news'},
+ {id:'f3',day:0,kind:'industry',important:false,source:'Example Dental Group',time:'6:00 am',conf:'From the source',title:'A dental group published new guidance on patient messages',summary:'The guidance covers how to word reminders and follow-ups.',why:'Worth a read before you send any patient messages. We do not send messages for you.',link:'example-dental-group.test/guidance',idea:null,glyph:'news'},
+ {id:'f4',day:0,kind:'local',important:false,source:'Springfield Daily (sample)',time:'6:00 am',conf:'From the source',title:'Road work near Main Street starts next week',summary:'Some lanes will be closed on weekday mornings for about two weeks.',why:'Some patients may find parking harder. You could mention parking tips in your Google profile.',link:'springfield-daily.test/road-work',idea:'Add parking tips to your Google profile',glyph:'pin'},
+ {id:'f5',day:1,kind:'near',practice:'Maple Street Dental',important:false,source:'Maple Street Dental',time:'6:00 am',conf:'Seen on their website',title:'Maple Street Dental changed its homepage headline',summary:'The new headline mentions same-week appointments.',why:'Nothing to do yet. We will keep watching and tell you if it changes how people find them.',link:'maplestreetdental.example',idea:null,glyph:'pin'},
+ {id:'f6',day:1,kind:'news',important:false,source:'Example Search News',time:'6:00 am',conf:'From the source',title:'A change to how local results look is being tested',summary:'Some searches for dentists show a different layout of the map and listings.',why:'It may change how many people click. We will tell you if your numbers move.',link:'example-search-news.test/local-layout',idea:null,glyph:'news'},
+ {id:'f7',day:2,kind:'near',practice:'Oak Park Dentistry',important:false,source:'Oak Park Dentistry',time:'6:00 am',conf:'Seen on their website',title:'Oak Park Dentistry published a post about teeth whitening',summary:'A short post explaining home and in-office whitening options.',why:'Nothing for you to do yet, so we are not suggesting a response.',link:'oakparkdentistry.example/blog',idea:null,glyph:'pin'},
+ {id:'f8',day:3,kind:'reviews',important:false,source:'Example Directory',time:'6:00 am',conf:'From the source',title:'A directory changed how it shows practice photos',summary:'Photos now appear larger and in a different order.',why:'Check that the first photo on your listing is one you like. No action needed from us.',link:'example-directory.test/photos',idea:null,glyph:'news'}];
+FEED.forEach((f,i)=>f.order=i);
+const DAYNAMES=['Today, Mon Oct 26','Yesterday, Sun Oct 25','Sat Oct 24','Fri Oct 23','Thu Oct 22'];
+const GLYPH={
+ news:'<svg viewBox="0 0 160 96" aria-hidden="true"><rect x="14" y="54" width="14" height="30" rx="3" fill="var(--c)" opacity=".25"/><rect x="34" y="40" width="14" height="44" rx="3" fill="var(--c)" opacity=".4"/><rect x="54" y="28" width="14" height="56" rx="3" fill="var(--c)" opacity=".6"/><circle cx="112" cy="40" r="24" fill="#fff" stroke="var(--c)" stroke-width="5"/><path d="M130 58l16 16" stroke="var(--c)" stroke-width="7" stroke-linecap="round"/><path d="M99 46l9-9 7 6 10-12" stroke="var(--c)" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ near:'<svg viewBox="0 0 160 96" aria-hidden="true"><rect x="18" y="46" width="30" height="40" rx="3" fill="var(--c)" opacity=".28"/><rect x="54" y="30" width="36" height="56" rx="3" fill="var(--c)" opacity=".45"/><rect x="96" y="50" width="28" height="36" rx="3" fill="var(--c)" opacity=".28"/><path d="M122 12c-10 0-18 8-18 17 0 12 18 28 18 28s18-16 18-28c0-9-8-17-18-17z" fill="var(--c)"/><circle cx="122" cy="29" r="6.5" fill="#fff"/><path d="M10 88h140" stroke="var(--c)" stroke-width="3" stroke-linecap="round" opacity=".5"/></svg>',
+ industry:'<svg viewBox="0 0 160 96" aria-hidden="true"><rect x="50" y="16" width="60" height="72" rx="9" fill="#fff" stroke="var(--c)" stroke-width="5"/><rect x="68" y="8" width="24" height="14" rx="5" fill="var(--c)"/><path d="M64 46h32M64 58h32M64 70h20" stroke="var(--c)" stroke-width="4" stroke-linecap="round" opacity=".55"/><circle cx="122" cy="68" r="16" fill="var(--c)"/><path d="M114 68l6 6 11-12" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ local:'<svg viewBox="0 0 160 96" aria-hidden="true"><rect x="18" y="42" width="22" height="44" fill="var(--c)" opacity=".35"/><rect x="46" y="24" width="26" height="62" fill="var(--c)" opacity=".55"/><rect x="78" y="48" width="20" height="38" fill="var(--c)" opacity=".35"/><rect x="104" y="34" width="26" height="52" fill="var(--c)" opacity=".5"/><path d="M10 88h140" stroke="var(--c)" stroke-width="4" stroke-linecap="round"/><path d="M52 34h4M52 44h4M52 54h4M110 44h4M110 54h4" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>',
+ reviews:'<svg viewBox="0 0 160 96" aria-hidden="true"><g transform="translate(52 50) scale(1.9)"><path d="M0-12l3.5 7.2 8 1.1-5.8 5.6 1.4 7.9L0 5.8l-7.1 3.8 1.4-7.9-5.8-5.6 8-1.1z" fill="var(--c)" fill-opacity=".22" stroke="var(--c)" stroke-width="2.2" stroke-linejoin="round"/></g><g transform="translate(100 42) scale(2.4)"><path d="M0-12l3.5 7.2 8 1.1-5.8 5.6 1.4 7.9L0 5.8l-7.1 3.8 1.4-7.9-5.8-5.6 8-1.1z" fill="var(--c)" fill-opacity=".22" stroke="var(--c)" stroke-width="2.2" stroke-linejoin="round"/></g><g transform="translate(132 66) scale(1.5)"><path d="M0-12l3.5 7.2 8 1.1-5.8 5.6 1.4 7.9L0 5.8l-7.1 3.8 1.4-7.9-5.8-5.6 8-1.1z" fill="var(--c)" fill-opacity=".22" stroke="var(--c)" stroke-width="2.2" stroke-linejoin="round"/></g></svg>'};
+
+/* ---- state ---- */
+let S,AD_AFTER,EXPIRY;
+/* ---- live mode: when served by the backend, review replies run through the real API ---- */
+let LIVE=false;
+const WHY_PERSONAL='Unhappy reviews are best followed by a personal call. This reply is short, says sorry and moves the conversation offline.';
+async function api(method,path,body){const r=await fetch('/api'+path,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(j.error||('HTTP '+r.status));e.issues=j.issues;e.status=r.status;throw e}return j}
+const toAct=(p,key)=>({id:p.id,key,kind:'reply',attempt:p.attempt,before:p.before,after:p.after,state:p.state,reason:p.reason||'',hash:p.hash,handoff:!!p.handoff,priority:p.priority,live:true});
+async function loadLive(){
+  const flags={};let list=await api('GET','/reviews');
+  await Promise.all(list.filter(it=>!it.review.reply&&!it.proposal).map(async it=>{const r=await api('POST','/reviews/'+it.review.id+'/propose');if(r.status==='needs_human')flags[it.review.id]=r.reason}));
+  list=await api('GET','/reviews');
+  const prev=S.acts.ad;REVIEWS.length=0;S.rev={};S.acts={ad:prev};
+  const withP=list.filter(x=>x.proposal);
+  const order=[...withP].sort((a,b)=>(b.proposal.priority==='personal_touch')-(a.proposal.priority==='personal_touch'));
+  const keyOf={};order.forEach((x,i)=>{keyOf[x.review.id]='rv'+(i+1)});
+  for(const it of list){const rv=it.review,p=it.proposal;S.rev[rv.id]={text:rv.text,reply:rv.reply};
+    const r={id:rv.id,key:keyOf[rv.id]||null,platform:rv.platform,stars:rv.stars,who:rv.who,date:rv.date,reply:rv.reply,text:rv.text};
+    if(p){r.why=p.priority==='personal_touch'?WHY_PERSONAL:null;if(p.first_draft){r.blocked=p.first_draft.reply;r.issues=p.first_draft.issues}S.acts[r.key]=toAct(p,r.key)}
+    else if(!rv.reply)r.flag=(flags[rv.id]||'A person should handle this one.');
+    REVIEWS.push(r)}
+  await syncEvents()}
+async function refreshLive(){const list=await api('GET','/reviews');
+  for(const it of list){const rv=it.review;S.rev[rv.id]={text:rv.text,reply:rv.reply};const r=REVIEWS.find(x=>x.id===rv.id);if(r&&r.key&&it.proposal)S.acts[r.key]=toAct(it.proposal,r.key)}
+  await syncEvents()}
+async function syncEvents(){const ev=(await api('GET','/audit?limit=500')).reverse();
+  S.events=ev.map(e=>({seq:e.seq,ts:e.ts,time:new Date(e.ts).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}).toLowerCase(),type:e.type,plain:e.plain,detail:e.detail||'',prev:e.prev.slice(0,8),hash:e.hash}))}
+
+function canon(a){const rep=a.kind==='reply';return JSON.stringify({env:'sample-sandbox',practice:PRACTICE,provider:rep?(a.after.platform==='Yelp'?'manual_handoff_yelp':'sandbox_google_profile'):'sandbox_ad_account',kind:a.kind,resource:rep?a.after.review:a.after.name,operation:rep?'post_review_reply':'create_paused_ad_draft',before:a.before,after:a.after,currency:'USD',impact:0,attempt:a.attempt})}
+function newAct(kind,attempt,before,opts){const o=opts||{};const a={id:'act_9c21',kind,attempt,before:{...before},after:{name:AD_AFTER.name,headline:AD_AFTER.headline,text:TONES[o.tone||'friendly'].text,tone:o.tone||'friendly',picture:o.picture||'A',media:o.media||null,format:o.format||'wide',status:'paused'},state:'PROPOSED',reason:''};a.hash=h53(canon(a));a.idem='idem_'+h53(a.hash+attempt,7).slice(0,10);return a}
+function newReply(key,attempt,reply){const r=REVIEWS.find(x=>x.key===key);const a={id:r.actId,key,kind:'reply',attempt,before:{text:S.rev[r.id].text,reply:null},after:{review:r.id,platform:r.platform,reply:reply||r.draft},state:'PROPOSED',reason:''};a.hash=h53(canon(a));a.idem='idem_'+h53(a.hash+attempt,7).slice(0,10);return a}
+function rehash(a){a.hash=h53(canon(a))}
+function addEvent(type,plain,detail){const prev=S.events.length?S.events[S.events.length-1].hash:'0'.repeat(14);const seq=S.events.length+1;
+  S.clock+=9000+(seq%3)*5000;const d=new Date(S.clock);const ts=d.toISOString().replace('T',' ').slice(0,19);
+  let h=d.getUTCHours();const ap=h>=12?'pm':'am';h=h%12||12;const time=h+':'+String(d.getUTCMinutes()).padStart(2,'0')+' '+ap;
+  const payload=JSON.stringify({type,plain,detail});S.events.push({seq,ts,time,type,plain,detail,prev,payload,hash:h53(prev+'|'+seq+'|'+ts+'|'+payload)})}
+function init(){if(UP&&typeof URL!=='undefined'&&URL.revokeObjectURL)URL.revokeObjectURL(UP.url);UP=null;UPMSG='';UPCLEAN=false;AD_AFTER={name:AD_NAME0,headline:AD_NAME0};EXPIRY=Date.now()+24*3600*1000;
+  const keep=S?{under:S.under}:{under:false};
+  S={tab:'week',under:keep.under,acts:{},rev:Object.fromEntries(REVIEWS.map(r=>[r.id,{text:r.text,reply:r.reply}])),editing:null,rmsg:null,rfilter:'all',copied:null,ads:[{name:'Welcome new patients (sample)',status:'paused',picture:'-'}],events:[],clock:Date.parse('2026-10-26T10:21:30Z'),
+   checking:-1,rejecting:null,sim:{rv1:false,ad:false},open:{},tamper:false,verify:null,quiet:false,ideas:[],
+   news:{sub:'feed',filter:'all',saved:{},hidden:{},checking:false,msg:''},
+   cfg:{freq:'daily',time:'6:00 am',cap:3,numbers:true,audio:true,rate:1,topics:{news:true,near:true,industry:false,local:false,reviews:false},
+     practices:[{name:'Springfield Smiles',url:'springfieldsmiles.example'},{name:'Maple Street Dental',url:'maplestreetdental.example'},{name:'Oak Park Dentistry',url:'oakparkdentistry.example'}]}};
+  ['rv1','rv2','rv3'].forEach(k=>{if(REVIEWS.some(r=>r.key===k))S.acts[k]=newReply(k,1)});S.acts.ad=newAct('ad',1,{exists:false});
+  addEvent('data.read','We read your Google and Yelp reviews from the last 4 weeks.','reviews_sample; 28d; google + yelp');
+  addEvent('brief.generated','We checked the news and 3 nearby practices. 2 short notes for today.','muse-spark-1.3 web_search x4; webcrawl diff x3; 2 of 5 candidates kept');
+  addEvent('analysis.completed','We read 9 new reviews. 4 have no reply yet.','muse-spark-1.3; muse-image-1.0; run_0192');
+  addEvent('recommendation.created','We drafted replies to 3 reviews and a new ad with three picture options.','validated; 3 replies privacy-checked (1 first draft stopped); images reviewed 3/3');
+  addEvent('policy.evaluated','We wrote no reply to 1 review. It mentions a billing problem and a lawyer.','3 drafted; 1 flagged for a person');
+  addEvent('action.proposed','Two things need your OK before we post or save anything. Two easy replies are waiting in Reviews.','act_5d12 and act_9c21 PROPOSED; act_5d13, act_5d14 PROPOSED')}
+const setState=(a,st,r)=>{a.state=st;a.reason=r||''};
+function preOk(a){if(a.kind==='reply'){const v=S.rev[a.after.review];return v.reply===null&&v.text===a.before.text}return !S.ads.some(p=>p.name===a.after.name)}
+function applyAct(a){if(a.kind==='reply')S.rev[a.after.review].reply=a.after.reply;else S.ads.push({name:a.after.name,status:'paused',picture:a.after.picture,headline:a.after.headline,text:a.after.text,format:a.after.format})}
+function verifyOk(a){if(a.kind==='reply')return S.rev[a.after.review].reply===a.after.reply;const p=S.ads.find(x=>x.name===a.after.name);return !!p&&p.status==='paused'&&p.picture===a.after.picture&&p.headline===a.after.headline&&p.text===a.after.text&&p.format===a.after.format}
+const hours=()=>Math.max(0,Math.floor((EXPIRY-Date.now())/3600000));
+const pending=()=>['rv1','ad'].filter(k=>S.acts[k]&&S.acts[k].state==='PROPOSED');
+const revPending=()=>['rv1','rv2','rv3'].filter(k=>S.acts[k]&&S.acts[k].state==='PROPOSED');
+
+/* ---- daily update: which notes are included ---- */
+function feedVisible(){const c=S.cfg;return FEED.filter(f=>c.topics[f.kind]&&(!f.practice||c.practices.some(p=>p.name===f.practice))&&!S.news.hidden[f.id])}
+function todayList(){if(S.quiet)return [];const c=S.cfg;let l=feedVisible().filter(f=>f.day===0);if(c.freq==='important')l=l.filter(f=>f.important);return [...l].sort((a,b)=>(Number(b.important)-Number(a.important))||a.order-b.order).slice(0,c.cap)}
+const inToday=id=>todayList().some(x=>x.id===id);
+
+/* ---- audio: your device reads a script Muse writes (Muse has no speech output) ---- */
+const AUD={on:false,paused:false,i:-1,token:0,single:null,sentences:[]};
+const canSpeak=()=>typeof window!=='undefined'&&'speechSynthesis' in window&&typeof SpeechSynthesisUtterance!=='undefined';
+function scriptSentences(){const L=todayList(),c=S.cfg;const out=['This is a sample update for '+PRACTICE+'.','Good morning. Here is your '+(c.freq==='weekly'?'weekly':'daily')+' update for Monday, October 26.'];
+  if(c.numbers){const w=revPending().length;out.push('You have '+RSTAT.newN+' new reviews in the last four weeks, and your average rating is '+RSTAT.avg+'.'+(w?' '+w+(w===1?' is':' are')+' waiting for a reply.':''))}
+  if(!L.length)out.push('Nothing new that needs you today. We checked the news and '+c.practices.length+' nearby practices.');
+  else{out.push(L.length===1?'There is one thing to know.':'There are '+['','one','two','three'][L.length]+' things to know.');L.forEach((n,i)=>{out.push(['First','Second','Third'][i]+': '+n.title+'.');out.push(n.why)})}
+  out.push('That is all for today.');return out}
+function speakSeq(sents,i,tok){if(tok!==AUD.token)return;if(i>=sents.length){AUD.on=false;AUD.i=-1;AUD.single=null;updateAudio();return}
+  AUD.i=i;updateAudio();const u=new SpeechSynthesisUtterance(sents[i]);u.rate=S.cfg.rate;u.onend=()=>speakSeq(sents,i+1,tok);u.onerror=()=>{if(tok===AUD.token){AUD.on=false;AUD.i=-1;AUD.single=null;updateAudio()}};speechSynthesis.speak(u)}
+function audioPlay(sents,single){if(!canSpeak())return;speechSynthesis.cancel();AUD.token++;AUD.on=true;AUD.paused=false;AUD.sentences=sents;AUD.single=single||null;speakSeq(sents,0,AUD.token)}
+function audioToggle(){if(!AUD.on||AUD.single){audioPlay(scriptSentences());return}if(AUD.paused){speechSynthesis.resume();AUD.paused=false}else{speechSynthesis.pause();AUD.paused=true}updateAudio()}
+function audioStop(){if(canSpeak())speechSynthesis.cancel();AUD.token++;AUD.on=false;AUD.paused=false;AUD.i=-1;AUD.single=null;updateAudio()}
+const ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg>',ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+const WAVE=[10,16,24,14,30,20,12,26,34,18,8,22,30,16,24,36,20,12,28,32,14,10,24,30,18,12,26,34,22,14,20,30,16,10,24,28,18,12,22,16];
+function waveHtml(prog){const BARS=Array.from({length:64},(_,i)=>WAVE[(i*7)%WAVE.length]);const on=Math.round(prog/100*BARS.length);return `<div class="wave" role="progressbar" aria-label="Audio progress" aria-valuenow="${prog}" aria-valuemin="0" aria-valuemax="100">${BARS.map((h,i)=>`<i class="${i<on?'on':''}" style="height:${h}px"></i>`).join('')}</div>`}
+function audioHtml(full){const c=S.cfg;
+  if(!c.audio)return `<div class="player" style="background:var(--surface-2)"><div class="pl-body"><b>Audio is turned off</b><span class="small muted">You can turn it on in Configure.</span></div><button class="btn out sm" data-act="open-config">Open Configure</button></div>`;
+  const sup=canSpeak(),main=AUD.on&&!AUD.single,sents=main?AUD.sentences:scriptSentences();const secs=Math.round(sents.join(' ').split(/\s+/).length/2.5/c.rate);const dur=Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0');
+  const playing=main&&!AUD.paused,prog=main?Math.round((AUD.i+1)/sents.length*100):0;
+  const sp=c.rate===1?'Normal speed':c.rate>1?'Faster':'Slower';
+  return `<div class="player"><button class="play" data-act="aud-toggle" aria-label="${playing?'Pause':'Play'} today's audio update" ${sup?'':'disabled'}>${playing?ICON_PAUSE:ICON_PLAY}</button>
+   <div class="pl-body"><b>Listen to today's update</b><span class="small muted">About ${dur}. ${sup?'Read aloud by your device.':'Read-aloud is not available in this browser. Read the text below.'}</span>${waveHtml(prog)}</div>
+   <div class="pl-ctl"><button class="opt" data-act="aud-speed">${sp}</button>${main?'<button class="opt" data-act="aud-stop">Stop</button>':''}</div></div>
+   ${full?det('audtext','Read the text instead',`<div class="tx">${sents.map((t,i)=>`<span class="${main&&AUD.i===i?'now':''}">${esc(t)}</span>`).join('')}</div><p class="fine">Muse Spark writes this script from today's notes. Your device's voice reads it.</p>`):''}`}
+function updateAudio(){if(typeof document==='undefined')return;if(S.tab==='news'&&S.news.sub==='feed'){render();return}document.querySelectorAll?.('.aud-mount').forEach(el=>{el.innerHTML=audioHtml(el.dataset.full==='1')})}
+
+/* ---- parts ---- */
+function reviewsCard(){const R=RSTAT,tile=(l,big,sub,good)=>`<div class="tile"><div class="l">${l}</div><div class="big num">${big}</div><div class="${good?'up':'down'}">${sub}</div></div>`;
+  const pc=Math.round(R.answered/R.newN*100),pp=Math.round(R.prevAnswered/R.prevOf*100),mx=Math.max(...R.dist);
+  return `<section class="card"><div class="card-h"><h2>How your reviews are doing</h2><button class="btn out sm" data-act="analyze" ${S.checking>=0?'disabled':''}>Check for new reviews</button></div>
+   <div class="tiles">${tile('Your average rating (out of 5)',R.avg,'Up from '+R.prevAvg,true)}${tile('New reviews in the last 4 weeks',R.newN,'Up from '+R.prevNew+' in the 4 weeks before',true)}${tile('New reviews you have answered',pc+'%','Was '+pp+'% before',pc>=pp)}${tile('Typical wait for a reply',R.wait+' days','Was '+R.prevWait+' days. Same day is best.',false)}</div>
+   <div class="dist" role="img" aria-label="All ${R.total} reviews by stars: ${[5,4,3,2,1].map((n,i)=>R.dist[i]+' with '+n).join(', ')}">${[5,4,3,2,1].map((n,i)=>`<div class="drow"><span>${n} ${n===1?'star':'stars'}</span><i style="--w:${(R.dist[i]/mx*100).toFixed(0)}%"></i><b class="num">${R.dist[i]}</b></div>`).join('')}</div>
+   <div class="legend"><span>All ${R.total} reviews on Google and Yelp. Sample data.</span></div></section>`}
+
+/* Sample layouts only: Muse Image would produce the real pictures. No people, no before-and-after. */
+function picSvg(k,shape){const H=shape==='square'?300:shape==='story'?533:180,dy=(H-180)/2;const ff='font-family="var(--font)"';let inner='';
+  if(k==='A')inner=`<circle cx="250" cy="40" r="70" fill="var(--accent)" fill-opacity=".35"/><circle cx="40" cy="170" r="60" fill="var(--primary)" fill-opacity=".15"/><text x="24" y="78" font-size="26" font-weight="800" fill="var(--ink)" ${ff}>Dental implants</text><text x="24" y="108" font-size="20" font-weight="600" fill="var(--primary-ink)" ${ff}>what to expect</text><rect x="24" y="130" width="130" height="30" rx="15" fill="var(--primary)"/><text x="89" y="150" text-anchor="middle" font-size="14" font-weight="700" fill="#fff" ${ff}>Learn more</text>`;
+  else if(k==='B')inner=`<text x="16" y="28" font-size="13" font-weight="800" fill="var(--ink)" ${ff}>Questions to ask about implants</text>${[0,1,2,3].map(i=>`<circle cx="24" cy="${56+i*28}" r="7" fill="var(--good)"/><text x="40" y="${60+i*28}" font-size="9" fill="var(--ink-2)" ${ff}>${['How long does treatment take?','What is included in the price?','What happens at the first visit?','What aftercare do I need?'][i]}</text>`).join('')}`;
+  else inner=`<circle cx="62" cy="62" r="38" fill="var(--primary)"/><text x="62" y="78" text-anchor="middle" font-size="46" font-weight="800" fill="#fff" ${ff}>?</text><text x="116" y="62" font-size="21" font-weight="800" fill="var(--ink)" ${ff}>How long do</text><text x="116" y="88" font-size="21" font-weight="800" fill="var(--ink)" ${ff}>implants take?</text><text x="24" y="150" font-size="15" font-weight="600" fill="var(--primary-ink)" ${ff}>Find out what to expect</text>`;
+  const bg=k==='B'?'var(--surface-2)':'var(--info-bg)';
+  return `<svg viewBox="0 0 300 ${H}" role="img" aria-label="Sample ad picture: ${PICS[k].name}"><rect width="300" height="${H}" fill="${bg}"/><g transform="translate(0,${dy})">${inner}</g></svg>`}
+function mediaHtml(a){const f=a.after.format,st=`aspect-ratio:${RATIO[f]}`;if(UP.kind==='video')return `<video class="m" style="${st}" src="${UP.url}" controls muted playsinline preload="metadata" aria-label="Your video"></video>`;return `<img class="m" style="${st}" src="${UP.url}" alt="Your picture">`}
+function phone(a){const f=a.after.format,sq=f==='square'||f==='story';return `<div class="phone${f==='story'?' story':''}" aria-label="Preview of the ad"><div class="hd"><span class="av">B</span><div><b>${PRACTICE}</b><span class="s">Sponsored</span></div></div><div class="pt">${esc(a.after.text)}</div><div class="pc">${a.after.picture==='U'&&UP?mediaHtml(a):picSvg(a.after.picture==='U'?'A':a.after.picture,f==='story'?'story':sq?'square':'wide')}</div><div class="ft"><div><span class="dom">brightwooddental.example</span><b>${esc(a.after.headline)}</b></div><span class="cta">Learn more</span></div></div>`}
+function techDetails(key){const k=S.acts[key].kind,rep=k==='reply';const rows=rep?[['Read the review','reviews.get_review','2 stars, Google, Oct 25'],['Read your practice details and voice','reviews.get_practice_facts','phone, parking, tone: warm and short'],['Read your last replies','reviews.get_past_replies','5 replies, used for tone only'],['Check the privacy rules','policy.check_reply','first draft stopped; rewrite passed'],['Write the reply','plan.propose_review_reply','created '+S.acts[key].id]]:
+  [['Read what nearby practices posted','brief.get_competitor_changes','Springfield Smiles added an implant cost page'],['Read the ad rules','creative.get_brand_rules','no before-and-after, no health claims, no promised results'],['Make 3 pictures','creative.generate_image (muse-image-1.0)','3 images, $0.03'],['Check each picture','creative.review_image (Spark vision)','1: 4 of 4. 2: 3 of 4, text small on phones. 3: 4 of 4'],['Write the ad draft','plan.propose_ad_draft','created act_9c21, paused, no budget']];
+  const inT=rep?6200:22400,cached=rep?3000:12000,out=rep?900:3400,img=rep?0:0.03,cost=(inT-cached)*1.25/1e6+cached*0.15/1e6+out*4.25/1e6+img;
+  return `<div class="under" style="margin-top:18px"><h3>Under the hood</h3><p class="small muted" style="margin-bottom:10px">Muse can only read data, write suggestions and make pictures. It has no passwords and cannot post or publish anything. A person approves, then separate code does the work and checks it.</p>
+  <div class="scroll"><table><thead><tr><th>Step</th><th>Tool (read or suggest only)</th><th>Result</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r[0]}</td><td class="mono">${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table></div>
+  <ul class="checks" style="margin-top:12px"><li><span class="ok">&#10003;</span><span>${rep?'Every fact in the reply comes from details you gave us':'Every fact the AI quoted matches data we fetched'}</span></li><li><span class="ok">&#10003;</span><span>${rep?'Review text is untrusted: it cannot give Muse instructions':'Every number in the summary matches our own calculation'}</span></li><li><span class="ok">&#10003;</span><span>${rep?'No hint the reviewer was a patient, no treatment named, no promises or health advice':'No before-and-after, health claims or promised results, in the words or the pictures'}</span></li></ul>
+  <p class="small muted" style="margin-top:10px">muse-spark-1.3 &middot; ${fmt(inT)} tokens in (${fmt(cached)} cached), ${fmt(out)} out${img?' &middot; 3 images':''} &middot; about $${cost.toFixed(3)} (prices to be rechecked; pictures here are drawings, not Muse Image output) &middot; approval locked to code <span class="hashchip">${S.acts[key].hash.slice(0,12)}</span></p></div>`}
+function briefTech(){const inT=9800,cached=4000,out=900,cost=(inT-cached)*1.25/1e6+cached*0.15/1e6+out*4.25/1e6+4*0.0025;
+  const rows=[['Search the news','Muse web_search (built-in, 4 searches at most)','12 results read'],['Look at the practices you watch','webcrawl: compare their public pages with yesterday (robots.txt obeyed)','1 page changed'],['Drop repeats and low-relevance','deterministic filter: new since yesterday, matches your topics and area, not shown before','5 candidates, 2 kept'],['Write the notes','Muse Spark; every note must cite a page we fetched','2 notes'],['Check the citations','backend','2 of 2 notes link to a page we fetched'],['Write the audio script','Muse Spark, from today\'s notes only','about 40 seconds of text'],['Read it aloud','your device\'s built-in voice (Muse has no speech output; Muse Voice only turns speech into text)','free, no file stored']];
+  return `<div class="under"><h3>Under the hood</h3><p class="small muted" style="margin-bottom:10px">A scheduled job runs once a day. News and web pages are untrusted text: they cannot give Muse instructions or tools. A note without a fetched source is dropped.</p>
+  <div class="scroll"><table><thead><tr><th>Step</th><th>How</th><th>Result</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table></div>
+  <p class="small muted" style="margin-top:10px">Noise limits are set in Configure (never more than 3 notes a day). About ${fmt(inT)} tokens in (${fmt(cached)} cached), ${fmt(out)} out, 4 searches: about $${cost.toFixed(3)} a day (prices to be rechecked).</p></div>`}
+const det=(key,label,inner,cls)=>`<details ${cls?`class="${cls}"`:''} data-key="${key}" ${S.open[key]?'open':''}><summary>${label}</summary>${inner}</details>`;
+
+/* ---- cards ---- */
+function rejectBox(kind){const alt=S.acts[kind].kind==='ad'?'I want a different picture or wording':'The wording is not right';return `<div style="margin-top:16px"><p class="small" style="font-weight:700;margin-bottom:10px">What is the reason? Tap one.</p><div class="chips">
+  <button class="btn out sm" data-act="reject" data-kind="${kind}" data-why="I need to ask someone first">I need to ask someone first</button>
+  <button class="btn out sm" data-act="reject" data-kind="${kind}" data-why="${alt}">${alt}</button>
+  <button class="btn out sm" data-act="reject" data-kind="${kind}" data-why="Not a priority right now">Not a priority right now</button>
+  <button class="btn quiet sm" data-act="cancel-reject">Cancel</button></div></div>`}
+function progress(a){const rep=a.kind==='reply',st=a.state;const idx=st==='VERIFIED'?3:st==='EXECUTED'?1:0;const L=[rep?'Posting the reply':'Saving the ad draft','Checking that it worked','Done'];
+  return `<div class="prog" aria-live="polite">${L.map((t,i)=>`<div class="${i<idx||(i===2&&st==='VERIFIED')?'fin':i===idx?'on':''}"><b>${i<idx||(i===2&&st==='VERIFIED')?'&#10003;':i+1}</b>${t}${i===idx&&st!=='VERIFIED'?'...':''}</div>`).join('')}</div>`}
+function adStateBody(a){const st=a.state;
+  if(st==='APPROVED'||st==='EXECUTING'||st==='EXECUTED')return progress(a);
+  if(st==='VERIFIED')return `<div class="callout good"><b>&#10003; Saved as a paused draft, and we checked</b>It is in your ad draft list. It is not running and no money is being spent.</div><div class="studio" style="margin-top:18px"><div>${phone(a)}</div><div><p class="small muted">Wording: ${TONES[a.after.tone].label}. Picture: ${a.after.picture==='U'&&a.after.media?'your own '+a.after.media.kind+' ('+esc(a.after.media.name)+')':PICS[a.after.picture].name}. Shape: ${SHAPES[a.after.format]}.</p><p class="fine">Switching it on is a separate step with its own OK. It is not part of this demo.</p></div></div>`;
+  if(st==='FAILED')return `<div class="callout bad"><b>We stopped. Nothing was saved.</b>An ad with that name already exists, so saving would have replaced someone else's work.</div><div class="btns" style="margin-top:14px"><button class="btn" data-act="repropose" data-kind="ad">Look at it again</button></div>`;
+  return `<div class="callout info"><b>You said not now</b>${esc(a.reason.replace('Reason: ',''))}. Nothing was saved.</div><div class="btns" style="margin-top:14px"><button class="btn out" data-act="repropose" data-kind="ad">Look at it again</button></div>`}
+
+function rvQuote(r){const v=S.rev[r.id];return `<blockquote class="rq"><div class="rqh">${platTag(r.platform)}${stars(r.stars)}<span class="muted small">${esc(r.who)} &middot; ${r.date} &middot; sample</span></div><p>${esc(v.text)}</p></blockquote>`}
+function revBody(key){const a=S.acts[key],r=REVIEWS.find(x=>x.id===a.after.review),st=a.state,yelp=r.platform==='Yelp',ed=S.editing===key;let b=rvQuote(r);
+  if(st==='PROPOSED'){const iss=S.rmsg&&S.rmsg.key===key?S.rmsg.list:[];
+    b+=(r.why?`<p class="why">${esc(r.why)}</p>`:'')+(r.blocked?`<div class="callout info" style="margin-bottom:14px"><b>Our privacy check stopped Muse's first draft</b>It read: "${esc(r.blocked)}" ${(r.issues||lintReply(r.blocked)).map(esc).join(' ')} Muse rewrote it. The version below passed.</div>`:'');
+    if(ed)b+=`<div class="fld"><label for="rtext">Your reply (up to 600 characters)</label><textarea class="inp" id="rtext" rows="5">${esc(a.after.reply)}</textarea></div>${iss.length?`<ul class="badlist" role="alert">${iss.map(x=>`<li>&#9888; ${esc(x)}</li>`).join('')}</ul>`:''}<div class="btns" style="margin-top:12px"><button class="btn" data-act="rev-save" data-kind="${key}">Save my wording</button><button class="btn out" data-act="rev-cancel">Cancel</button></div><p class="fine">We check your wording again before it is saved.</p>`;
+    else b+=`<div class="ba"><div class="b s"><span>We suggest replying</span>${esc(a.after.reply)}</div></div><p style="margin:-2px 0 14px"><button class="linkbtn" data-act="rev-edit" data-kind="${key}">Change the wording</button></p>
+      ${S.rejecting===key?rejectBox(key):`<div class="btns"><button class="btn" data-act="approve" data-kind="${key}">${yelp?'Yes, approve this reply':'Yes, post this reply'}</button><button class="btn out" data-act="start-reject" data-kind="${key}">Not now</button></div>`}
+      <p class="fine">${yelp?'Yelp does not let apps post replies. After you approve, copy it and paste it into Yelp yourself.':'Your OK covers exactly this reply. If the review changes before we post, we stop and ask you again.'} No cost. This OK expires in ${hours()} hours.</p>
+      ${det('rv-more-'+key,'More details',`<h3 style="margin:4px 0 8px">Safety checks</h3><ul class="checks"><li><span class="ok">&#10003;</span><span>It does not say or hint that the reviewer was a patient</span></li><li><span class="ok">&#10003;</span><span>It names no treatment and gives no health advice</span></li><li><span class="ok">&#10003;</span><span>No promises, refunds or invented facts${r.fact?'. '+esc(r.fact):''}</span></li><li><span class="ok">&#10003;</span><span>Written in your practice's voice, from your last replies</span></li><li><span class="ok">&#10003;</span><span>${yelp?'Nothing is posted by us':'Nothing is posted until you say yes'}</span></li></ul><p class="fine">${yelp?'This demo has no Yelp connection.':'This demo posts to a practice sandbox, not to Google.'}</p>`)}`}
+  else if(a.handoff)b+=`<div class="callout good"><b>&#10003; Approved. Now paste it into Yelp</b>We cannot post to Yelp and cannot check it afterwards. Copy the reply and paste it under the review.</div><div class="ba" style="margin-top:14px"><div class="b s"><span>Your approved reply</span>${esc(a.after.reply)}</div></div><div class="btns"><button class="btn" data-act="rev-copy" data-kind="${key}">${S.copied===key?'&#10003; Copied':'Copy the reply'}</button></div>`;
+  else if(st==='APPROVED'||st==='EXECUTING'||st==='EXECUTED')b+=progress(a);
+  else if(st==='VERIFIED')b+=`<div class="callout good"><b>&#10003; Posted, and we checked</b>We looked at the review again after posting. Your reply is showing.</div><div class="ba" style="margin-top:14px"><div class="b s"><span>Showing under the review now</span>${esc(S.rev[r.id].reply)}</div></div>`;
+  else if(st==='FAILED')b+=`<div class="callout bad"><b>We stopped. Nothing was posted.</b>The review was edited after you said yes, so what you approved no longer matched. We posted nothing.</div><div class="btns" style="margin-top:14px"><button class="btn" data-act="repropose" data-kind="${key}">Look at it again</button></div>`;
+  else b+=`<div class="callout info"><b>You said not now</b>${esc(a.reason.replace('Reason: ',''))}. Nothing was posted.</div><div class="btns" style="margin-top:14px"><button class="btn out" data-act="repropose" data-kind="${key}">Look at it again</button></div>`;
+  return b}
+function rvFeature(){if(!S.acts.rv1)return '';return `<article class="card feature"><span class="kind">Needs your personal touch</span><h2>A 2-star Google review is waiting</h2>${revBody('rv1')}${S.under?techDetails('rv1'):''}</article>`}
+
+const needsOk=a=>a.after.picture==='U'&&!(UP&&UP.ok);
+function pickGrid(a){return `<div class="picks" role="group" aria-label="Choose a picture">${['A','B','C'].map((k,i)=>`<button class="pick" data-act="pick" data-pick="${k}" aria-pressed="${a.after.picture===k}"><span>${picSvg(k,'wide')}</span><b>Option ${i+1}: ${PICS[k].name}</b><span class="res ${passN(k)===4?'ok':'warn'}">${passN(k)===4?'&#10003; ':'&#9888; '}${resText(k)}</span></button>`).join('')}</div>`}
+function adCard(){const a=S.acts.ad,st=a.state;let body='';
+  if(st==='PROPOSED'){body=`<p class="why">A nearby practice just published a page about implant costs (see News), so this ad answers the same questions: what it costs and what to expect. We made three picture options and checked each one against ad rules. Pick the one you like.</p>
+   <div class="ba two"><div class="b n"><span>Headline</span>${esc(a.after.headline)}</div><div class="b n"><span>Ad text (${TONES[a.after.tone].label.toLowerCase()})</span>${esc(a.after.text)}</div></div>
+   ${pickGrid(a)}
+   <p class="picknote">Sample layouts. Muse Image makes the real pictures. We never use patient photos or before-and-after shots. <button class="linkbtn" data-act="tab" data-tab="ads">Change the wording or shape in the Ads tab</button></p>
+   ${S.rejecting==='ad'?rejectBox('ad'):`<div class="btns"><button class="btn" data-act="approve" data-kind="ad" ${needsOk(a)?'disabled':''}>Yes, save this ad as a draft</button><button class="btn out" data-act="start-reject" data-kind="ad">Not now</button></div>${needsOk(a)?'<p class="fine">You chose your own file. Open the Ads tab and confirm it before you say yes.</p>':''}`}
+   <p class="fine">It is saved as a paused draft. Nothing runs and no money is spent. You or your team set the budget later. This OK expires in ${hours()} hours.</p>
+   ${det('ad-more','More details',`<ul class="plain"><li>It would be shown on Facebook and Instagram, once you or your team set a budget and switch it on.</li><li>Our checks cover the words and each picture: no before-and-after, no claims about a person's health, no promised results, readable on a phone.</li><li>A person should still check it against healthcare ad rules before it runs.</li></ul>
+     <h3 style="margin:16px 0 8px">Safety checks</h3><ul class="checks"><li><span class="ok">&#10003;</span><span>No money is spent</span></li><li><span class="ok">&#10003;</span><span>Saved as paused. It cannot run until a person switches it on.</span></li><li><span class="ok">&#10003;</span><span>No invented patients, ratings or results</span></li><li><span class="ok">&#10003;</span><span>No ad with this name exists yet</span></li></ul><p class="fine">This demo saves to a practice sandbox, not a real ad account.</p>`)}`}
+  else body=adStateBody(a);
+  return `<article class="card feature"><span class="kind">New ad</span><h2>Approve a new ad about dental implants</h2>${body}${S.under?techDetails('ad'):''}</article>`}
+
+function verifyChain(){let prev='0'.repeat(14);for(const e of S.events){const payload=(S.tamper&&e.seq===2)?JSON.stringify({type:e.type,plain:e.plain+' (edited)',detail:e.detail}):e.payload;if(e.prev!==prev||h53(prev+'|'+e.seq+'|'+e.ts+'|'+payload)!==e.hash)return {ok:false,at:e.seq};prev=e.hash}return {ok:true,n:S.events.length}}
+function activity(){const res=S.verify?(S.verify.ok?`<div class="callout good"><b>The record is intact</b>${S.verify.n} entries checked. None has been altered.</div>`:`<div class="callout bad"><b>The record was altered at entry ${S.verify.at}</b>The stored text no longer matches its fingerprint.</div>`):'';
+  return det('activity','What we have done so far',`<ul class="timeline">${[...S.events].reverse().map(e=>`<li><time>${e.time}</time><span>${esc(e.plain)}</span></li>`).join('')}</ul>
+  ${S.under?`<div class="under" style="margin-top:14px"><h3>Under the hood: prove the record has not been changed</h3><p class="small muted" style="margin-bottom:12px">Each entry stores a fingerprint of the one before it, so changing history is detectable. This demo uses a simple fingerprint; the real system uses SHA-256.</p>
+   <div class="row" style="margin-bottom:12px"><button class="btn sm" data-act="verify">Check the record</button><button class="btn out sm" data-act="tamper">${S.tamper?'Undo the edit':'Pretend someone edited entry 2'}</button></div>${res}
+   <div class="scroll" style="margin-top:12px"><table><thead><tr><th>#</th><th>Event</th><th>Detail</th><th>Previous</th><th>Fingerprint</th></tr></thead><tbody>${S.events.map(e=>`<tr><td class="num">${e.seq}</td><td class="mono">${e.type}</td><td>${esc(e.detail)}${S.tamper&&e.seq===2?' <span class="status s-stop">edited</span>':''}</td><td class="mono">${e.prev.slice(0,8)}</td><td class="mono">${e.hash.slice(0,8)}</td></tr>`).join('')}</tbody></table></div></div>`:''}`,'plainbox')}
+
+/* ---- tabs ---- */
+function updateCard(){const L=todayList();
+  return `<section class="card brief"><div class="card-h"><div><span class="kind">Mon, Oct 26</span><h2>${S.cfg.freq==='weekly'?"This week's update":"Today's update"}</h2></div><button class="btn out sm" data-act="tab" data-tab="news">Open the news feed</button></div>
+   <div class="aud-mount" data-full="0">${audioHtml(false)}</div>
+   ${L.length?`<div style="margin-top:14px">${L.map(n=>`<div class="li" style="padding:12px 0"><div><span class="kind" style="margin-bottom:0"><i class="dot dot-${n.kind}"></i>${KIND_LABEL[n.kind]}</span><b style="font-size:17px">${esc(n.title)}</b></div>${n.important?'<span class="status s-warn">Worth a look</span>':''}</div>`).join('')}</div>`:`<div class="callout info" style="margin-top:14px"><b>&#10003; Nothing new that needs you today</b>We checked and nothing changed that matters to you.</div>`}
+   </section>`}
+function vWeek(){const n=pending().length,easy=revPending().filter(k=>k!=='rv1').length;
+  const checking=S.checking>=0?`<section class="card"><h2 style="margin-bottom:14px">Looking for new reviews and ideas...</h2><div class="prog">${['Reading your Google and Yelp reviews','Sorting which ones need a personal reply','Checking replies against your privacy rules','Writing draft replies and making pictures'].map((t,i)=>`<div class="${i<S.checking?'fin':i===S.checking?'on':''}"><b>${i<S.checking?'&#10003;':i+1}</b>${t}</div>`).join('')}</div></section>`:'';
+  const presenter=S.under?`<section class="under"><h3>Presenter controls</h3><p class="small muted">Shows the safety checks working. Turn these on, then press Yes.</p>
+    <label class="ck"><input type="checkbox" data-act="sim" data-kind="rv1" ${S.sim.rv1?'checked':''}><span>The reviewer edits their review right after I say yes to the reply</span></label>
+    <label class="ck"><input type="checkbox" data-act="sim" data-kind="ad" ${S.sim.ad?'checked':''}><span>Someone saves an ad with the same name right after I say yes to the ad</span></label>
+    <label class="ck"><input type="checkbox" data-act="quiet" ${S.quiet?'checked':''}><span>Pretend it is a quiet day (nothing new to report)</span></label>
+    <div class="row" style="margin-top:14px"><button class="btn quiet sm" data-act="reset">Reset the demo</button></div></section>`:'';
+  return `<section><div class="tagrow"><span>${PRACTICE}</span><span class="tag">Sample data</span></div><h1>Good morning. Here is your week.</h1>
+   <p class="lead">How your reviews are doing, and what we suggest. Nothing is posted or saved until you say yes.</p></section>
+   ${updateCard()}${reviewsCard()}${checking}${presenter}
+   <h2 style="margin-top:6px">${n?(n===1?'1 thing needs your OK':n+' things need your OK'):'Nothing is waiting for you'}</h2>
+   <div class="stack">${rvFeature()}${adCard()}</div>
+   ${easy?`<section class="card soft"><h3 style="margin-bottom:6px">${easy} easy ${easy===1?'reply is':'replies are'} ready in Reviews</h3><p class="small muted" style="margin-bottom:12px">Thank-you replies to good reviews. Each one still needs your OK.</p><button class="btn out sm" data-act="tab" data-tab="reviews">Open reviews</button></section>`:''}
+   <section class="card soft"><h3 style="margin-bottom:10px">We also left these alone</h3><ul class="plain"><li><b>A 1-star Yelp review about double billing and a lawyer:</b> we wrote no reply. Please handle this one yourself.</li><li><b>3 older reviews:</b> already answered.</li></ul></section>
+   ${activity()}`}
+
+const answered=r=>!!S.rev[r.id].reply||!!(r.key&&S.acts[r.key]&&S.acts[r.key].handoff);
+function vReviews(){const f=S.rfilter,nW=REVIEWS.filter(r=>!answered(r)).length,list=REVIEWS.filter(r=>f==='all'||(f==='waiting'?!answered(r):answered(r)));
+  const row=r=>{const a=r.key&&S.acts[r.key]?S.acts[r.key]:null;let inner;
+    if(a)inner=revBody(r.key);
+    else if(r.reply)inner=rvQuote(r)+`<div class="ba"><div class="b n"><span>Your reply</span>${esc(r.reply)}</div></div>`;
+    else inner=rvQuote(r)+`<div class="callout warn"><b>Left for you</b>${esc(r.flag)} We did not write a reply. Please handle this one yourself.</div>`;
+    return `<article class="card revcard">${inner}${S.under&&a?techDetails(r.key):''}</article>`};
+  return `<div><h1>Reviews</h1><p class="lead">What patients wrote on Google and Yelp, and the replies we suggest. Nothing is posted until you say yes.</p></div>
+   <div class="conn"><div class="card soft"><div class="row" style="gap:8px">${platTag('Google')}<span class="tag">Sample data</span></div><p class="small muted" style="margin-top:8px">A live link needs Google's approval for apps that reply on a practice's behalf. This demo uses sample reviews and a practice sandbox.</p></div>
+    <div class="card soft"><div class="row" style="gap:8px">${platTag('Yelp')}<span class="tag">Sample data</span></div><p class="small muted" style="margin-top:8px">We found no way for apps to post Yelp replies, so you copy and paste an approved reply yourself.</p></div></div>
+   <div class="chips" style="margin-bottom:16px">${[['all','All ('+REVIEWS.length+')'],['waiting','Waiting ('+nW+')'],['answered','Answered ('+(REVIEWS.length-nW)+')']].map(x=>`<button class="opt" data-act="rev-filter" data-val="${x[0]}" aria-pressed="${f===x[0]}">${x[1]}</button>`).join('')}</div>
+   <div class="stack">${list.map(row).join('')||'<div class="quietday">Nothing here.</div>'}</div>`}
+
+/* ---- news: feed + configure ---- */
+function postHtml(f){const saved=!!S.news.saved[f.id],listening=AUD.on&&AUD.single===f.id,inA=inToday(f.id);
+  return `<article class="post" data-k="${f.kind}"><div class="ph"><span class="av ${f.kind}">${esc(f.source[0])}</span><div><b>${esc(f.source)}</b><span class="t"><i></i>${KIND_LABEL[f.kind]} &middot; ${f.time}</span></div><span class="sp"></span>${inA?'<span class="status s-ready">In today\'s audio</span>':''}${f.important?'<span class="status s-warn">Worth a look</span>':''}</div>
+   <div class="thumb ${f.kind}">${GLYPH[f.kind]}<span class="cap">Sample item</span></div>
+   <div class="body"><h3>${esc(f.title)}</h3><p>${esc(f.summary)}</p><div class="w"><b>Why it matters for you</b>${esc(f.why)}</div><p class="src">${f.conf} &middot; ${esc(f.link)}</p></div>
+   <div class="act"><button class="btn out sm" data-act="post-listen" data-id="${f.id}">${listening?'Stop':'Listen'}</button><button class="btn quiet sm" data-act="post-save" data-id="${f.id}" aria-pressed="${saved}">${saved?'&#10003; Saved':'Save'}</button>${f.idea?(S.ideas.includes(f.idea)?'<button class="btn quiet sm" disabled>&#10003; In your ideas</button>':`<button class="btn quiet sm" data-act="post-idea" data-id="${f.id}">Add to my ideas</button>`):''}<button class="btn quiet sm" data-act="post-hide" data-id="${f.id}">Show fewer like this</button></div></article>`}
+function updateSummary(){const c=S.cfg,on=Object.keys(TOPICS).filter(k=>c.topics[k]).map(k=>TOPICS[k].label.toLowerCase());const fq=c.freq==='daily'?'every day at '+c.time:c.freq==='weekly'?'once a week, Monday at '+c.time:'only when something matters';
+  return `Up to ${c.cap} ${c.cap===1?'note':'notes'} ${fq}, about ${on.join(', ')||'nothing yet'}. Watching ${c.practices.length} ${c.practices.length===1?'practice':'practices'}. Audio is ${c.audio?'on':'off'}.`}
+function vNews(){if(S.news.sub==='config')return vConfig();
+  const c=S.cfg,flt=S.news.filter,vis=feedVisible();const hid=Object.keys(S.news.hidden).length;
+  const filterOk=f=>flt==='all'||(flt==='saved'?S.news.saved[f.id]:f.kind===flt);
+  const chips=[['all','All'],...Object.keys(TOPICS).filter(k=>c.topics[k]).map(k=>[k,TOPICS[k].label]),['saved','Saved']];
+  let feed='';
+  for(let d=0;d<5;d++){const items=vis.filter(f=>f.day===d&&filterOk(f));
+    feed+=`<h2 class="dayh">${DAYNAMES[d]}</h2>`;
+    if(d===0&&S.quiet)feed+=`<div class="quietday"><b>Nothing new that needs you today.</b> We checked and did not add filler.</div>`;
+    else if(items.length)feed+=`<div class="stack" style="gap:18px;margin-bottom:22px">${items.map(postHtml).join('')}</div>`;
+    else feed+=`<div class="quietday">${flt==='all'?'Nothing new that day. We checked and did not add filler.':'Nothing here for this filter.'}</div>`}
+  return `<div class="row" style="justify-content:space-between"><div><h1>News</h1><p class="lead">What changed in search, ads and nearby practices. Scroll like a feed, or listen to the short daily summary.</p></div><button class="btn out" data-act="open-config">Configure your update</button></div>
+  <div class="feed"><div>${hid?`<p class="fine" style="margin:0 0 12px">You hid ${hid} ${hid===1?'note':'notes'}. <button class="linkbtn" data-act="news-unhide">Show again</button></p>`:''}<div class="chips" style="margin-bottom:16px">${chips.map(x=>`<button class="opt" data-act="news-filter" data-val="${x[0]}" aria-pressed="${flt===x[0]}">${TOPICS[x[0]]?`<i class="dot dot-${x[0]}"></i>`:''}${x[1]}</button>`).join('')}</div>${feed}</div>
+   <aside class="rail"><section class="card"><h2 style="margin-bottom:14px">Today's audio summary</h2><div class="aud-mount" data-full="1">${audioHtml(true)}</div></section>
+    <section class="card soft"><h3 style="margin-bottom:8px">What is in your update</h3><p class="small muted">${updateSummary()}</p><div class="row" style="margin-top:12px"><button class="btn quiet sm" data-act="open-config">Change this</button><button class="btn quiet sm" data-act="news-check" ${S.news.checking?'disabled':''}>${S.news.checking?'Checking...':'Check now'}</button></div></section>
+    ${S.under?briefTech():''}</aside></div>`}
+
+function tg(act,val,on,label){return `<button class="tg" role="switch" aria-checked="${on}" aria-label="${label}" data-act="${act}" data-val="${val}"></button>`}
+function chip(group,key,label,pressed,dis){return `<button class="opt" data-act="${group}" data-val="${key}" aria-pressed="${pressed}" ${dis?'disabled':''}>${label}</button>`}
+function vConfig(){const c=S.cfg;
+  return `<button class="back" data-act="close-config">&larr; Back to news</button>
+  <div class="row" style="justify-content:space-between"><div><h1>Configure your update</h1><p class="lead">Choose what goes into your daily summary and your news feed. Changes save by themselves.</p></div><span class="savedchip" id="savedchip" role="status">Saved</span></div>
+  <div class="sumbox"><b>Tomorrow's update:</b> ${updateSummary()}</div>
+  <div class="cfg-grid"><div class="stack">
+   <section class="card"><h2 style="margin-bottom:6px">What to look for</h2><p class="small muted" style="margin-bottom:6px">Turn topics on or off. Off topics disappear from the feed and the audio.</p>
+    ${Object.keys(TOPICS).map(k=>`<div class="trow"><div><b>${TOPICS[k].label}</b><span class="d">${TOPICS[k].d}</span></div>${tg('cfg-topic',k,c.topics[k],TOPICS[k].label)}</div>`).join('')}</section>
+   <section class="card"><h2 style="margin-bottom:14px">How it arrives</h2>
+    <div class="ctl"><h3>How often</h3><div class="chips">${chip('cfg-freq','daily','Every day',c.freq==='daily')}${chip('cfg-freq','important','Only when something matters',c.freq==='important')}${chip('cfg-freq','weekly','Once a week',c.freq==='weekly')}</div></div>
+    <div class="ctl"><h3>What time</h3><div class="chips">${['6:00 am','7:00 am','8:00 am'].map(t=>chip('cfg-time',t,t,c.time===t)).join('')}</div></div>
+    <div class="ctl" style="margin-bottom:0"><h3>Most notes in one update</h3><div class="chips">${[1,2,3].map(n=>chip('cfg-cap',n,String(n),c.cap===n)).join('')}</div><p class="fine">Three is the most we allow, so the update stays short.</p></div></section>
+  </div><div class="stack">
+   <section class="card"><h2 style="margin-bottom:6px">Audio</h2>
+    <div class="trow"><div><b>Read my update aloud</b><span class="d">Adds a play button to your main page and to the news page.</span></div>${tg('cfg-audio','audio',c.audio,'Read my update aloud')}</div>
+    <div class="trow"><div><b>Start with a line about my reviews</b><span class="d">One sentence about your new reviews and rating.</span></div>${tg('cfg-numbers','numbers',c.numbers,'Start with a line about my reviews')}</div>
+    <div class="ctl" style="margin:12px 0 0"><h3>Speed</h3><div class="chips">${[[0.85,'Slower'],[1,'Normal'],[1.25,'Faster']].map(r=>chip('cfg-rate',r[0],r[1],c.rate===r[0])).join('')}</div></div>
+    <p class="fine">Your device's own voice reads the text. Nothing is recorded or stored.</p></section>
+   <section class="card"><h2 style="margin-bottom:6px">Practices we watch</h2><p class="small muted" style="margin-bottom:8px">We only read their public web pages, once a day. No logins, no forms, nothing sent.</p>
+    <div>${c.practices.length?c.practices.map((p,i)=>`<div class="wl"><div><b>${esc(p.name)}</b><div class="small muted">${esc(p.url)}</div></div><button class="btn quiet sm" data-act="cfg-remove" data-i="${i}">Remove</button></div>`).join(''):'<p class="muted">You are not watching any practices.</p>'}</div>
+    <h3 style="margin:18px 0 10px">Add a practice</h3><div class="row" style="align-items:flex-end"><div class="fld"><label for="pname">Practice name</label><input class="inp" id="pname" placeholder="For example: Riverside Dental" autocomplete="off"></div><div class="fld"><label for="purl">Website</label><input class="inp" id="purl" placeholder="riversidedental.example" autocomplete="off"></div><button class="btn sm" data-act="cfg-add">Add</button></div>
+    <p class="small" id="cfgmsg" role="status" style="margin-top:10px;color:var(--bad-ink)">${esc(S.news.msg)}</p></section>
+  </div></div>`}
+
+function ownCard(a,k){const word=k==='video'?'video':'picture';
+  if(UP&&UP.kind===k)return `<div class="own"><button class="pick mine" data-act="pick" data-pick="U" aria-pressed="${a.after.picture==='U'}"><span class="thumb">${k==='video'?`<video src="${UP.url}#t=0.5" muted playsinline preload="metadata" aria-hidden="true"></video>`:`<img src="${UP.url}" alt="">`}</span><b>Your ${word}</b><span class="res">${esc(UP.name)} &middot; ${mb(UP.size)}</span></button><div class="upinfo"><label class="linkbtn rep">Replace<input type="file" class="upin" accept="${k==='video'?'video/mp4,video/quicktime':'image/jpeg,image/png'}" aria-label="Replace your ${word}"></label><button class="linkbtn" data-act="up-remove">Remove</button></div></div>`;
+  return `<label class="drop dropc"><input type="file" class="upin" accept="${k==='video'?'video/mp4,video/quicktime':'image/jpeg,image/png'}" aria-label="Add your own ${word}"><span class="ico" aria-hidden="true">+</span><b>Add a ${word}</b><span>${k==='video'?'MP4, up to 60 seconds':'JPG or PNG'}</span></label>`}
+function cleanRow(){if(!UP||UP.kind==='video')return '';return `<p class="small" style="margin-top:6px">Patients in your picture? <button class="linkbtn" data-act="up-clean" aria-expanded="${UPCLEAN}">Clean up picture</button> <em class="soon">Planned</em></p>${UPCLEAN?'<p class="small muted">Not in this demo. In the real app, Muse Image would redraw your picture without people and show it next to the original. For now, upload a picture without people.</p>':''}`}
+function fitNote(a){if(!UP)return '';const want=RVAL[a.after.format],have=UP.w/UP.h;if(Math.abs(have/want-1)<=.15)return '';return `<p class="small" style="margin:0 0 10px;color:var(--warn-ink);font-weight:600">&#9888; The edges will be cropped to fit the ${SHAPES[a.after.format].split(' ')[0].toLowerCase()} shape. Try another shape above.</p>`}
+function vAds(){const a=S.acts.ad,st=a.state;const open=st==='PROPOSED';
+  const label=st==='PROPOSED'?['s-ready','Ready for your OK']:st==='VERIFIED'?['s-done','Saved as a paused draft']:st==='REJECTED'?['s-idle','Not now']:st==='FAILED'?['s-stop','Stopped, needs another look']:['s-ready','Being saved'];
+  const mine=a.after.picture==='U'&&UP;
+  const checks=mine?CHECKS.map(c=>`<li><span class="warn">?</span><span>${c}: not checked yet</span></li>`).join(''):CHECKS.map((c,i)=>{const ok=PICS[a.after.picture].r[i];return `<li><span class="${ok?'ok':'warn'}">${ok?'&#10003;':'&#9888;'}</span><span>${c}${ok?'':': the text is small on a phone. You can still choose it, or pick another picture.'}</span></li>`}).join('');
+  const studio=open?`<div class="studio"><div class="pv"><span class="pvlab">Ad preview</span>${phone(a)}<p class="fine" style="text-align:center">This is how it would look on Facebook or Instagram.</p></div>
+    <div><div class="ctl"><h3>1. Pick a picture or video</h3>
+      <p class="lab">Made for you by Muse</p>
+      <div class="thumbs">${['A','B','C'].map((k,i)=>`<button class="pick" data-act="pick" data-pick="${k}" aria-pressed="${a.after.picture===k}"><span>${picSvg(k,'wide')}</span><b>${i+1}. ${PICS[k].name}</b><span class="res ${passN(k)===4?'ok':'warn'}">${passN(k)===4?'&#10003; ':'&#9888; '}${passN(k)} of 4 checks passed</span></button>`).join('')}</div>
+      <p class="picknote">Samples shown here. Muse Image makes the real pictures.</p>
+      <p class="lab">Or use your own</p>
+      <div class="owns">${['image','video'].map(k=>ownCard(a,k)).join('')}</div>
+      <p class="fine" style="margin-top:8px">One file per ad: adding another replaces it. Your file stays in this browser in this demo.</p>${UPMSG?`<p class="upmsg" role="status">${esc(UPMSG)}</p>`:'<p class="upmsg" role="status"></p>'}</div>
+     <div class="ctl"><h3>2. Choose how it sounds</h3><div class="chips seg">${Object.keys(TONES).map(k=>chip('tone',k,TONES[k].label,a.after.tone===k)).join('')}</div></div>
+     <div class="ctl"><h3>3. Choose the shape</h3><div class="chips seg">${Object.keys(SHAPES).map(k=>chip('shape',k,SHAPES[k],a.after.format===k)).join('')}</div></div>
+     <div class="ctl"><h3>${mine?'Check your own '+(UP.kind==='video'?'video':'picture'):'Muse checked this picture and these words'}</h3>${mine?`${fitNote(a)}<p class="small muted" style="margin:0 0 10px">${UP.kind==='video'?'In the real app a person checks videos.':'In the real app Muse checks it too. Here, tick each one yourself.'}</p><div class="tick">${CHECKS.map((c,i)=>`<label><input type="checkbox" data-act="upok" data-i="${i}" ${UP.c[i]?'checked':''}><span>${c}</span></label>`).join('')}</div>${cleanRow()}`:`<ul class="checks">${checks}</ul>`}</div>
+     ${S.rejecting==='ad'?rejectBox('ad'):`<div class="btns"><button class="btn" data-act="approve" data-kind="ad" ${needsOk(a)?'disabled':''}>Yes, save this ad as a draft</button><button class="btn out" data-act="start-reject" data-kind="ad">Not now</button></div>`}
+     <p class="fine">Saved as a paused draft. Nothing runs and no money is spent. This OK expires in ${hours()} hours.</p></div></div>`:adStateBody(a);
+  return `<div><h1>Ads</h1><p class="lead">Shape an ad until it feels right. We write the words and make the pictures, and you choose. We never switch an ad on or spend money without your OK.</p></div>
+  <section class="card"><div class="card-h"><div><span class="kind">New ad</span><h2>${esc(a.after.headline)}</h2></div><span class="status ${label[0]}">${label[1]}</span></div>${studio}${S.under?techDetails('ad'):''}</section>
+  <section class="card"><h2 style="margin-bottom:6px">Other ads</h2><div>
+   ${S.ideas.map(i=>`<div class="li"><div><b>${esc(i)}</b><span class="muted small">From the news</span></div><span class="status s-idle">Idea</span></div>`).join('')}
+   <div class="li"><div><b>Family dentistry: welcome new patients</b><span class="muted small">Next idea in line</span></div><span class="status s-idle">Idea</span></div>
+   ${S.ads.filter(p=>p.picture==='-').map(p=>`<div class="li"><div><b>${esc(p.name)}</b><span class="muted small">Saved earlier, not running</span></div><span class="status s-idle">Paused</span></div>`).join('')}</div></section>
+  <section class="card soft"><h3 style="margin-bottom:10px">How we make ads for you</h3><ul class="plain"><li>We write the words and make picture options. You pick.</li><li>Every picture and every line is checked against ad rules before you see it.</li><li>No patient photos, before-and-after shots, invented ratings or promised results.</li><li>Drafts are saved paused. Switching one on is its own OK, and you or your team set the budget.</li></ul></section>`}
+
+function loadingCard(){return `<section class="card"><h2 style="margin-bottom:14px">Reading your reviews and writing replies...</h2><div class="prog"><div class="fin"><b>&#10003;</b>Reading your Google and Yelp reviews</div><div class="on"><b>2</b>Writing draft replies with Muse</div><div><b>3</b>Checking each reply against your privacy rules</div></div><p class="fine">Muse reads each review and your practice details, then a rule check runs before you see anything.</p></section>`}
+function render(){const n=todayList().length;
+  $('#tabs').innerHTML=[['week','This week',pending().length],['reviews','Reviews',revPending().length],['news','News',n],['ads','Ads',0]].map(t=>`<button data-act="tab" data-tab="${t[0]}" ${S.tab===t[0]?'aria-current="page"':''}>${t[1]}${t[2]?`<span class="n">${t[2]}</span>`:''}</button>`).join('');
+  $('#sw').setAttribute('aria-checked',String(S.under));
+  $('#main').innerHTML=(S.loading&&(S.tab==='week'||S.tab==='reviews'))?loadingCard():({week:vWeek,reviews:vReviews,news:vNews,ads:vAds})[S.tab]()}
+
+/* ---- actions ---- */
+async function analyze(){S.tab='week';S.checking=0;render();window.scrollTo(0,0);for(let i=1;i<=4;i++){await sleep(600);S.checking=i;render()}await sleep(400);S.checking=-1;render()}
+async function execute(kind){const a=S.acts[kind];if(a.state!=='APPROVED'||a.handoff)return;const rep=a.kind==='reply';
+  setState(a,'EXECUTING');addEvent('execution.started',rep?'We are posting your reply now.':'We are saving the ad draft now.',a.id+' attempt '+a.attempt+'; '+a.idem);render();await sleep(900);
+  if(!preOk(a)){setState(a,'FAILED','precondition_changed');addEvent('execution.refused',rep?'We stopped. The review was edited after you said yes, so we did not post anything.':'We stopped. An ad with that name already exists, so we did not save anything.','precondition_changed; nothing written');render();return}
+  applyAct(a);setState(a,'EXECUTED');addEvent('execution.succeeded',rep?'We posted your reply.':'We saved the ad as a paused draft. It is not running.','provider accepted write');render();await sleep(900);
+  if(verifyOk(a)){setState(a,'VERIFIED');addEvent('verification.passed',rep?'We looked at the review again. Your reply is showing.':'We checked the ad draft again. It is saved, paused, and matches what you approved.','independent read-back equals expected')}
+  else{setState(a,'FAILED','verification_mismatch');addEvent('verification.failed','We checked and it did not match. Please look at it.','read-back differs')}
+  render()}
+function drift(kind){if(kind==='rv1'){S.rev.g1.text+=' (Edit: the wait was closer to an hour.)';addEvent('sandbox.changed','The reviewer edited their review (demo).','review text changed outside the orchestrator')}
+  else{S.ads.push({name:AD_AFTER.name,status:'paused',picture:'B',headline:'Implant ad (teammate draft)',text:'',format:'wide'});addEvent('sandbox.changed','A teammate already saved an ad with that name (demo).','name collision')}}
+async function liveApprove(key){const a=S.acts[key];a.state='EXECUTING';render();
+  try{if(S.sim[key]){await api('POST','/demo/reviews/'+a.after.review+'/edit',{});S.sim[key]=false}
+    await api('POST','/proposals/'+a.id+'/approve',{hash:a.hash})}catch(e){S.apiErr=e.message}
+  await refreshLive();render()}
+async function approve(kind){if(LIVE&&S.acts[kind].kind==='reply')return liveApprove(kind);const a=S.acts[kind];if(kind==='ad'&&a.after.picture==='U'&&!(UP&&UP.ok))return;setState(a,'APPROVED');
+  if(a.kind==='reply'&&a.after.platform==='Yelp'){a.handoff=true;addEvent('action.approved','You approved the reply to the Yelp review. Yelp does not let apps post, so you paste it yourself.','bound to hash '+a.hash.slice(0,12)+'; manual handoff');addEvent('handoff.manual','We posted nothing on Yelp.','provider has no reply endpoint in this plan; no read-back possible');render();return}
+  addEvent('action.approved',a.kind==='reply'?'You said yes to posting your reply to the Google review. Your OK expires in 24 hours.':'You said yes to saving the ad ('+TONES[a.after.tone].label.toLowerCase()+' wording, '+(a.after.picture==='U'?'your own '+(a.after.media?a.after.media.kind:'file'):'picture option '+(['A','B','C'].indexOf(a.after.picture)+1))+', '+SHAPES[a.after.format].toLowerCase()+' shape) as a paused draft. Your OK expires in 24 hours.','bound to hash '+a.hash.slice(0,12));
+  render();await sleep(500);if(S.sim[kind]){drift(kind);S.sim[kind]=false}await execute(kind)}
+function adEdit(fn){const a=S.acts.ad;if(a.state!=='PROPOSED')return;fn(a);rehash(a);render()}
+function cfgEvent(plain,detail){addEvent('config.changed',plain,detail||'setting stored');const el=typeof document!=='undefined'?$('#savedchip'):null;if(el&&el.classList){el.classList.add('on');setTimeout(()=>el.classList.remove('on'),1800)}}
+function addPractice(){const n=($('#pname')||{}).value||'',u=($('#purl')||{}).value||'';const name=n.trim(),url=u.trim().replace(/^https?:\/\//,'');
+  if(!name||!url){S.news.msg='Please fill in both the name and the website.';render();return}
+  if(!/^[a-z0-9.-]+\.[a-z]{2,}([\/].*)?$/i.test(url)){S.news.msg='That website does not look right. Try something like riversidedental.example';render();return}
+  if(S.cfg.practices.length>=5){S.news.msg='You can watch up to 5 practices.';render();return}
+  if(S.cfg.practices.some(p=>p.name.toLowerCase()===name.toLowerCase())){S.news.msg='You are already watching that practice.';render();return}
+  S.cfg.practices.push({name,url});S.news.msg='';cfgEvent('You added '+name+' to the practices we watch. We start tomorrow.','practice allowlist +1: '+url);render()}
+
+function removeUp(){if(!UP)return;URL.revokeObjectURL(UP.url);UP=null;UPMSG='';UPCLEAN=false;adEdit(a=>{if(a.after.picture==='U')a.after.picture='A';a.after.media=null})}
+function probe(f,kind,url){return new Promise((ok,no)=>{const el=document.createElement(kind==='video'?'video':'img');const t=setTimeout(()=>no(),8000);
+  el.onerror=()=>{clearTimeout(t);no()};
+  if(kind==='video'){el.preload='metadata';el.muted=true;el.onloadedmetadata=()=>{clearTimeout(t);ok({w:el.videoWidth,h:el.videoHeight,dur:el.duration})};el.src=url}
+  else{el.onload=()=>{clearTimeout(t);ok({w:el.naturalWidth,h:el.naturalHeight,dur:0})};el.src=url}})}
+async function takeFile(f){if(!f)return;const a=S.acts.ad;if(!a||a.state!=='PROPOSED')return;
+  const kind=/^image\/(jpeg|png)$/.test(f.type)?'image':/^video\/(mp4|quicktime)$/.test(f.type)?'video':'';
+  if(!kind){UPMSG='That file type does not work here. Please use a JPG or PNG picture, or an MP4 video.';render();return}
+  const max=kind==='image'?8*1048576:50*1048576;
+  if(f.size>max){UPMSG=`That file is ${mb(f.size)}, which is too big. Pictures can be up to 8 MB and videos up to 50 MB.`;render();return}
+  const url=URL.createObjectURL(f);let m;
+  try{m=await probe(f,kind,url)}catch(e){URL.revokeObjectURL(url);UPMSG='We could not open that file. Please try another one.';render();return}
+  if(kind==='video'&&m.dur>60){URL.revokeObjectURL(url);UPMSG=`That video is ${Math.round(m.dur)} seconds long. Videos can be up to 60 seconds.`;render();return}
+  if(UP)URL.revokeObjectURL(UP.url);
+  UP={kind,url,name:f.name,size:f.size,w:m.w,h:m.h,dur:m.dur,ok:false,c:[false,false,false,false]};UPMSG='';UPCLEAN=false;
+  addEvent('creative.uploaded','You added your own '+kind+' to the ad. It stays in this browser.','local file, '+mb(f.size)+'; not sent to Muse in this demo');
+  adEdit(x=>{x.after.picture='U';x.after.media=mediaOf()})}
+document.addEventListener('change',e=>{const i=e.target.closest('.upin');if(i){takeFile(i.files[0]);return}const u=e.target.closest('[data-act="upok"]');if(u&&UP){UP.c[+u.dataset.i]=u.checked;UP.ok=UP.c.every(Boolean);render()}});
+['dragenter','dragover'].forEach(n=>document.addEventListener(n,e=>{e.preventDefault();const d=e.target.closest&&e.target.closest('.dropc');if(d)d.classList.add('over')}));
+document.addEventListener('dragleave',e=>{const d=e.target.closest&&e.target.closest('.dropc');if(d)d.classList.remove('over')});
+document.addEventListener('drop',e=>{e.preventDefault();const d=e.target.closest&&e.target.closest('.dropc');if(d){d.classList.remove('over');takeFile(e.dataTransfer&&e.dataTransfer.files[0])}});
+document.addEventListener('toggle',e=>{const d=e.target;if(d&&d.tagName==='DETAILS'&&d.dataset.key)S.open[d.dataset.key]=d.open},true);
+document.addEventListener('change',e=>{const el=e.target.closest('[data-act="sim"]');if(el){S.sim[el.dataset.kind]=el.checked}const q=e.target.closest('[data-act="quiet"]');if(q){S.quiet=q.checked;render()}});
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el||el.dataset.act==='sim'||el.dataset.act==='quiet')return;const act=el.dataset.act,kind=el.dataset.kind,val=el.dataset.val;
+  switch(act){
+   case 'tab':S.tab=el.dataset.tab;if(S.tab==='news')S.news.sub='feed';S.rejecting=null;S.editing=null;S.rmsg=null;render();window.scrollTo(0,0);break;
+   case 'under':S.under=!S.under;render();break;
+   case 'analyze':analyze();break;
+   case 'pick':adEdit(a=>{a.after.picture=el.dataset.pick;a.after.media=a.after.picture==='U'?mediaOf():null});break;
+   case 'up-remove':removeUp();break;
+   case 'up-clean':UPCLEAN=!UPCLEAN;render();break;
+   case 'tone':adEdit(a=>{a.after.tone=val;a.after.text=TONES[val].text});break;
+   case 'shape':adEdit(a=>{a.after.format=val});break;
+   case 'approve':approve(kind);break;
+   case 'start-reject':S.rejecting=kind;render();break;
+   case 'cancel-reject':S.rejecting=null;render();break;
+   case 'reject':{if(LIVE&&S.acts[kind].kind==='reply'){api('POST','/proposals/'+S.acts[kind].id+'/reject',{reason:el.dataset.why}).then(refreshLive).then(()=>{S.rejecting=null;render()});break}const a=S.acts[kind];setState(a,'REJECTED','Reason: '+el.dataset.why);addEvent('action.rejected','You said not now to '+(a.kind==='reply'?'the reply':'the ad draft')+'. '+el.dataset.why+'.','rejected by operator');S.rejecting=null;render();break}
+   case 'repropose':{if(LIVE&&S.acts[kind].kind==='reply'){api('POST','/reviews/'+S.acts[kind].after.review+'/propose').then(refreshLive).then(render);break}if(S.acts[kind].kind==='reply')S.acts[kind]=newReply(kind,S.acts[kind].attempt+1,S.acts[kind].after.reply);else{const k=S.acts.ad.after;if(S.ads.some(p=>p.name===AD_AFTER.name))AD_AFTER.name=AD_NAME0+' (v2)';S.acts.ad=newAct('ad',S.acts.ad.attempt+1,{exists:false},{picture:k.picture,media:k.media,tone:k.tone,format:k.format})}
+      const a=S.acts[kind];addEvent('action.proposed','We looked again as things are now. Your OK is needed.',a.id+' attempt '+a.attempt+'; hash '+a.hash.slice(0,12));render();break}
+   case 'rev-edit':S.editing=kind;S.rmsg=null;render();break;
+   case 'rev-cancel':S.editing=null;S.rmsg=null;render();break;
+   case 'rev-save':{if(LIVE){const a=S.acts[kind],t=(($('#rtext')||{}).value||'').trim();api('POST','/proposals/'+a.id+'/edit',{reply:t}).then(refreshLive).then(()=>{S.editing=null;S.rmsg=null;render()}).catch(e=>{S.rmsg={key:kind,list:e.issues?e.issues.map(i=>i.message):[e.message]};render()});break}const a=S.acts[kind],t=(($('#rtext')||{}).value||'').trim(),iss=lintReply(t);if(iss.length){S.rmsg={key:kind,list:iss};render();break}
+      a.after.reply=t;rehash(a);S.editing=null;S.rmsg=null;addEvent('draft.edited','You changed the wording of a reply. We checked it again and it passed.','privacy check passed; hash '+a.hash.slice(0,12));render();break}
+   case 'rev-copy':{const a=S.acts[kind];try{navigator.clipboard&&navigator.clipboard.writeText(a.after.reply).catch(()=>{})}catch(e){}S.copied=kind;render();setTimeout(()=>{S.copied=null;if(S.tab==='reviews'||S.tab==='week')render()},1800);break}
+   case 'rev-filter':S.rfilter=val;render();break;
+   case 'reset':audioStop();if(LIVE){init();S.loading=true;render();api('POST','/demo/reset').then(()=>loadLive()).then(()=>{S.loading=false;render();window.scrollTo(0,0)})}else{init();render();window.scrollTo(0,0)}break;
+   case 'verify':if(LIVE){api('GET','/audit/verify').then(v=>{S.verify={ok:v.ok,n:v.checked,at:v.at};render()})}else{S.verify=verifyChain();render()}break;
+   case 'tamper':if(LIVE){api('POST','/demo/audit/tamper',{on:!S.tamper}).then(t=>{S.tamper=t.tampered;S.verify=null;return syncEvents()}).then(render)}else{S.tamper=!S.tamper;S.verify=null;render()}break;
+   /* audio */
+   case 'aud-toggle':audioToggle();break;
+   case 'aud-stop':audioStop();break;
+   case 'aud-speed':{const o=[1,1.25,0.85];S.cfg.rate=o[(o.indexOf(S.cfg.rate)+1)%3];render();break}
+   case 'post-listen':{const f=FEED.find(x=>x.id===el.dataset.id);if(AUD.on&&AUD.single===f.id)audioStop();else audioPlay([f.title+'.',f.summary,f.why],f.id);break}
+   /* feed */
+   case 'news-filter':S.news.filter=val;render();break;
+   case 'post-save':{const id=el.dataset.id;S.news.saved[id]=!S.news.saved[id];render();break}
+   case 'post-idea':{const f=FEED.find(x=>x.id===el.dataset.id);if(!S.ideas.includes(f.idea)){S.ideas.push(f.idea);addEvent('idea.added','You added an idea from the news: '+f.idea+'. It is only an idea until you approve something.','idea stored; no action proposed')}render();break}
+   case 'post-hide':{const f=FEED.find(x=>x.id===el.dataset.id);S.news.hidden[f.id]=true;addEvent('brief.hidden','You asked for fewer notes like "'+f.title+'".','preference stored; item hidden');render();break}
+   case 'news-unhide':S.news.hidden={};render();break;
+   case 'news-check':{S.news.checking=true;render();setTimeout(()=>{S.news.checking=false;addEvent('brief.generated','We checked again. Nothing new since this morning.','muse-spark-1.3 web_search x4; webcrawl diff x'+S.cfg.practices.length+'; 0 new candidates');render()},1500);break}
+   /* configure */
+   case 'open-config':S.tab='news';S.news.sub='config';render();window.scrollTo(0,0);break;
+   case 'close-config':S.news.sub='feed';render();window.scrollTo(0,0);break;
+   case 'cfg-topic':S.cfg.topics[val]=!S.cfg.topics[val];if(S.news.filter!=='all'&&S.news.filter!=='saved'&&!S.cfg.topics[S.news.filter])S.news.filter='all';render();cfgEvent((S.cfg.topics[val]?'You turned on ':'You turned off ')+TOPICS[val].label.toLowerCase()+' in your update.');break;
+   case 'cfg-freq':S.cfg.freq=val;render();cfgEvent('You set your update to '+({daily:'every day',important:'only when something matters',weekly:'once a week'})[val]+'.');break;
+   case 'cfg-time':S.cfg.time=val;render();cfgEvent('You set your update time to '+val+'.');break;
+   case 'cfg-cap':S.cfg.cap=Number(val);render();cfgEvent('You set the most notes in one update to '+val+'.');break;
+   case 'cfg-audio':S.cfg.audio=!S.cfg.audio;if(!S.cfg.audio)audioStop();render();cfgEvent('You turned audio '+(S.cfg.audio?'on':'off')+'.');break;
+   case 'cfg-numbers':S.cfg.numbers=!S.cfg.numbers;render();cfgEvent('You turned the numbers line '+(S.cfg.numbers?'on':'off')+' in your audio.');break;
+   case 'cfg-rate':S.cfg.rate=Number(val);render();cfgEvent('You set the audio speed.');break;
+   case 'cfg-add':addPractice();break;
+   case 'cfg-remove':{const p=S.cfg.practices.splice(Number(el.dataset.i),1)[0];render();cfgEvent('You stopped watching '+p.name+'.','practice allowlist -1');break}
+  }});
+applyBrand();init();render();
+if(location.protocol.startsWith('http')){S.loading=true;render();api('GET','/health').then(async h=>{LIVE=true;S.drafter=h.drafter;await loadLive();S.loading=false;render()}).catch(()=>{LIVE=false;S.loading=false;render()})}
+</script>

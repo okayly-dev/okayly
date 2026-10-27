@@ -1,13 +1,15 @@
 """HTTP interface. Every button in the interface maps to one endpoint here. The browser holds
 no model key and no provider credentials."""
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .errors import OrchestratorError, PolicyViolation
-from .wiring import build
+from .wiring import build, load_fixture
 
 
 class ApproveBody(BaseModel):
@@ -20,6 +22,10 @@ class EditBody(BaseModel):
 
 class RejectBody(BaseModel):
     reason: str = Field(min_length=1, max_length=200)
+
+
+class TamperBody(BaseModel):
+    on: bool
 
 
 class SuffixBody(BaseModel):
@@ -83,5 +89,18 @@ def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
         def demo_edit(review_id: str, b: SuffixBody):
             orch.providers["Google"].edit_text(review_id, b.suffix)
             return {"ok": True}
+
+        @app.post("/api/demo/reset")
+        def demo_reset():
+            orch.demo_reset(load_fixture()["reviews"])
+            return {"ok": True}
+
+        @app.post("/api/demo/audit/tamper")
+        def demo_tamper(b: TamperBody):
+            return orch.demo_tamper(b.on)
+
+    web = Path(__file__).resolve().parent.parent / "web"
+    if web.is_dir():
+        app.mount("/", StaticFiles(directory=web, html=True), name="web")
 
     return app

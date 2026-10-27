@@ -133,8 +133,9 @@ class Orchestrator:
         return self._view(self._row(pid))
 
     def _skip(self, review_id: str, reason: str, audit: bool = True) -> dict:
-        if audit:
-            self.audit.append("proposal.skipped", "We wrote no reply and left this review for a person.", reason, None)
+        detail = f"{review_id}: {reason}"
+        if audit and not self.store.one("SELECT 1 FROM events WHERE type='proposal.skipped' AND detail=?", (detail,)):
+            self.audit.append("proposal.skipped", "We wrote no reply and left this review for a person.", detail, None)
         return {"status": "needs_human", "review_id": review_id, "reason": reason}
 
     # ---- edit ----
@@ -228,6 +229,23 @@ class Orchestrator:
             p = self.store.one("SELECT * FROM proposals WHERE review_id=? ORDER BY created_at DESC, attempt DESC LIMIT 1", (rv.id,))
             out.append({"review": rv.__dict__, "proposal": self._view(p) if p else None})
         return out
+
+    # ---- demo controls (only reachable when DEMO_CONTROLS=1) ----
+    def demo_reset(self, reviews: list[dict]) -> None:
+        with self.store.tx():
+            for t in ("proposals", "events", "writes", "reviews"):
+                self.store.run(f"DELETE FROM {t}")
+            self.store.run("DELETE FROM sqlite_sequence WHERE name='events'")
+        self.providers["Google"].seed(reviews)
+
+    def demo_tamper(self, on: bool) -> dict:
+        """Edit the text of audit entry 2 behind the app's back, to show the chain check catching it."""
+        suffix = " (edited)"
+        if on:
+            self.store.run("UPDATE events SET plain = plain || ? WHERE seq=2 AND plain NOT LIKE ?", (suffix, "%" + suffix))
+        else:
+            self.store.run("UPDATE events SET plain = substr(plain, 1, length(plain) - ?) WHERE seq=2 AND plain LIKE ?", (len(suffix), "%" + suffix))
+        return {"tampered": bool(self.store.one("SELECT 1 FROM events WHERE seq=2 AND plain LIKE ?", ("%" + suffix,)))}
 
     def usage(self) -> dict:
         r = self.store.one("SELECT COUNT(*) n, COALESCE(SUM(input_tokens),0) i, COALESCE(SUM(cached_tokens),0) c, COALESCE(SUM(output_tokens),0) o, COALESCE(SUM(cost_usd),0) usd FROM usage")
