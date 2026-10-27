@@ -2,9 +2,9 @@ import time
 
 import pytest
 
-from app.audit import Audit
-from app.canonical import canon, hash_of
-from app.store import Store
+from app.core.audit import Audit
+from app.core.canonical import canon, hash_of
+from app.core.store import Store
 
 
 # ---------- canonical + audit ----------

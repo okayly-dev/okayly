@@ -1,9 +1,9 @@
 import pytest
 
-from app import policy
-from app.domain import ReviewState
-from app.errors import Expired, HashMismatch, InvalidTransition, PolicyViolation
-from app.muse.reviews import Draft
+from app.verification import policy
+from app.core.domain import ReviewState
+from app.core.errors import Expired, HashMismatch, InvalidTransition, PolicyViolation
+from app.agents.reviews import Draft
 from app.wiring import build, load_fixture
 
 

@@ -16,11 +16,11 @@ import secrets
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from . import policy
-from .audit import Audit
-from .canonical import hash_of, sha256
-from .domain import Issue, State, TRANSITIONS
-from .errors import Expired, HashMismatch, InvalidTransition, NotFound, PolicyViolation
+from .verification import policy
+from .core.audit import Audit
+from .core.canonical import hash_of, sha256
+from .core.domain import Issue, State, TRANSITIONS
+from .core.errors import Expired, HashMismatch, InvalidTransition, NotFound, PolicyViolation
 from .providers.sandbox import ManualHandoff, NameTaken
 
 TTL_SECONDS = 24 * 3600

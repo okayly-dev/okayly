@@ -2,7 +2,7 @@
 a reply that breaks a rule cannot become a proposal, and cannot be saved after an edit."""
 import re
 
-from .domain import Issue, ReviewState
+from ..core.domain import Issue, ReviewState
 
 MAX_CHARS = 600
 

@@ -5,11 +5,11 @@ import os
 import time
 from pathlib import Path
 
-from .muse.ads import FixtureAdStudio, MuseAdStudio
-from .muse.reviews import FixtureDrafter, MuseDrafter
+from .agents.ads import FixtureAdStudio, MuseAdStudio
+from .agents.reviews import FixtureDrafter, MuseDrafter
 from .providers.sandbox import ManualYelp, SandboxAdAccount, SandboxGoogle
 from .service import Orchestrator
-from .store import Store
+from .core.store import Store
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample.json"
 
@@ -28,7 +28,7 @@ def build(db_path: str | None = None, drafter: str | None = None, clock=time.tim
     providers["Ads"].seed(fx["ads"])
     orch = Orchestrator(store, providers, None, fx["facts"], fx["past_replies"], clock=clock)
     if drafter == "muse":
-        from .muse.client import MuseClient
+        from .agents.client import MuseClient
         muse = muse or MuseClient(store=store)
         orch.drafter = MuseDrafter(muse, orch.drafter_context())
         orch.ad_studio = MuseAdStudio(muse, orch.drafter_context())

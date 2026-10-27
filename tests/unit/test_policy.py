@@ -1,7 +1,7 @@
 import pytest
 
-from app import policy
-from app.domain import ReviewState
+from app.verification import policy
+from app.core.domain import ReviewState
 from app.wiring import load_fixture
 
 FACTS = load_fixture()["facts"]

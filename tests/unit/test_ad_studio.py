@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from app import policy
-from app.muse.ads import MuseAdStudio, parse_ad_draft, parse_picture_check
-from app.muse.loop import DraftError
+from app.verification import policy
+from app.agents.ads import MuseAdStudio, parse_ad_draft, parse_picture_check
+from app.agents.loop import DraftError
 from app.wiring import load_fixture
 
 

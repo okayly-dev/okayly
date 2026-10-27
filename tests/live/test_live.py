@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from app import policy
+from app.verification import policy
 from app.wiring import build
 
 pytestmark = [pytest.mark.live, pytest.mark.skipif(os.environ.get("RUN_LIVE") != "1", reason="set RUN_LIVE=1 to call the real API")]

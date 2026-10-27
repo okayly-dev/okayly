@@ -8,7 +8,7 @@ import struct
 import zlib
 from dataclasses import dataclass, field
 
-from .. import policy
+from ..verification import policy
 from .loop import DraftError, load_args, run_tool_loop
 
 SYSTEM = """You write one short Facebook and Instagram ad for a dental practice. A person approves it before it is saved, and it is saved paused.

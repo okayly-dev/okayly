@@ -3,7 +3,7 @@ read the current state, write (executor only), and read back through the same re
 Google is writable; Yelp is read-only because no way for an app to post a Yelp reply was found."""
 import time
 
-from ..domain import AdState, ReviewState
+from ..core.domain import AdState, ReviewState
 
 
 class ManualHandoff(Exception):

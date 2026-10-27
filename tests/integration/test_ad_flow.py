@@ -1,7 +1,7 @@
 import pytest
 
-from app import policy
-from app.errors import HashMismatch, InvalidTransition, NotFound, PolicyViolation
+from app.verification import policy
+from app.core.errors import HashMismatch, InvalidTransition, NotFound, PolicyViolation
 from app.wiring import build, load_fixture
 
 
@@ -60,7 +60,7 @@ def test_second_blocked_ad_means_no_proposal():
 
     class Bad:
         def draft(self, name, feedback=None):
-            from app.muse.ads import AdDraft
+            from app.agents.ads import AdDraft
             return AdDraft("Guaranteed results", "Free whitening", ["x"])
     o.ad_studio = Bad()
     assert o.propose_ad("B")["status"] == "needs_human"

@@ -1,7 +1,7 @@
 import pytest
 
-from app.domain import ReviewState
-from app.muse.reviews import DraftError, MuseDrafter, parse_draft
+from app.core.domain import ReviewState
+from app.agents.reviews import DraftError, MuseDrafter, parse_draft
 from app.wiring import load_fixture
 
 

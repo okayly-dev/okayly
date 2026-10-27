@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from .errors import OrchestratorError, PolicyViolation
+from .core.errors import OrchestratorError, PolicyViolation
 from .wiring import build, load_fixture
 
 
