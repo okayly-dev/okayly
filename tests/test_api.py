@@ -71,3 +71,40 @@ def test_skipped_review_is_audited_once():
     for _ in range(3):
         assert c.post("/api/reviews/y3/propose").json()["status"] == "needs_human"
     assert sum(1 for e in c.get("/api/audit").json() if e["type"] == "proposal.skipped") == 1
+
+
+def test_ad_flow_over_http():
+    c = client()
+    assert c.get("/api/ads").json()["ads"][0]["status"] == "paused"
+    p = c.post("/api/ads/propose", json={"name": "Spring new patients"}).json()
+    assert p["state"] == "PROPOSED" and len(p["extra"]["candidates"]) == 3
+    sha = p["after"]["image_sha"]
+    img = c.get(f"/api/images/{sha}")
+    assert img.status_code == 200 and img.headers["content-type"] == "image/png"
+    assert c.get("/api/images/" + "0" * 64).status_code == 404
+    other = p["extra"]["candidates"][2]["sha"]
+    p2 = c.post(f"/api/proposals/{p['id']}/picture", json={"sha": other}).json()
+    assert p2["hash"] != p["hash"]
+    bad = c.post(f"/api/proposals/{p['id']}/edit-ad", json={"headline": "Guaranteed results"})
+    assert bad.status_code == 422
+    assert c.post(f"/api/proposals/{p['id']}/approve", json={"hash": p["hash"]}).status_code == 409
+    done = c.post(f"/api/proposals/{p['id']}/approve", json={"hash": p2["hash"]}).json()
+    assert done["state"] == "VERIFIED"
+    assert [a["name"] for a in c.get("/api/ads").json()["ads"]][-1] == "Spring new patients"
+    assert c.get("/api/audit/verify").json()["ok"] is True
+
+
+def test_ad_name_collision_demo_control():
+    c = client()
+    p = c.post("/api/ads/propose", json={"name": "Teammate test"}).json()
+    c.post("/api/demo/ads/collide", json={"name": "Teammate test"})
+    out = c.post(f"/api/proposals/{p['id']}/approve", json={"hash": p["hash"]}).json()
+    assert out["state"] == "FAILED" and out["reason"] == "precondition_changed"
+    c.post("/api/demo/reset")
+    assert len(c.get("/api/ads").json()["ads"]) == 1 and c.get("/api/ads").json()["proposals"] == []
+
+
+def test_image_route_is_not_a_file_server():
+    c = client()
+    assert c.get("/api/images/../../etc/passwd").status_code in (404, 422)
+    assert c.post("/api/proposals/x/picture", json={"sha": "../x"}).status_code == 422

@@ -3,7 +3,7 @@ no model key and no provider credentials."""
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -18,6 +18,25 @@ class ApproveBody(BaseModel):
 
 class EditBody(BaseModel):
     reply: str = Field(max_length=2000)
+
+
+class ProposeAdBody(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    format: str = Field(default="wide", max_length=10)
+
+
+class EditAdBody(BaseModel):
+    headline: str | None = Field(default=None, max_length=200)
+    text: str | None = Field(default=None, max_length=1000)
+    format: str | None = Field(default=None, max_length=10)
+
+
+class PictureBody(BaseModel):
+    sha: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class CollideBody(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
 
 
 class RejectBody(BaseModel):
@@ -56,6 +75,27 @@ def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
     def propose(review_id: str):
         return orch.propose_reply(review_id)
 
+    @app.get("/api/ads")
+    def ads():
+        return orch.list_ads()
+
+    @app.post("/api/ads/propose")
+    def propose_ad(b: ProposeAdBody):
+        return orch.propose_ad(b.name, b.format)
+
+    @app.get("/api/images/{sha}")
+    def image(sha: str):
+        mime, data = orch.image(sha)
+        return Response(content=data, media_type=mime, headers={"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff"})
+
+    @app.post("/api/proposals/{pid}/edit-ad")
+    def edit_ad(pid: str, b: EditAdBody):
+        return orch.edit_ad(pid, b.headline, b.text, b.format)
+
+    @app.post("/api/proposals/{pid}/picture")
+    def picture(pid: str, b: PictureBody):
+        return orch.choose_picture(pid, b.sha)
+
     @app.get("/api/proposals/{pid}")
     def proposal(pid: str):
         return orch.get(pid)
@@ -92,7 +132,13 @@ def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
 
         @app.post("/api/demo/reset")
         def demo_reset():
-            orch.demo_reset(load_fixture()["reviews"])
+            fx = load_fixture()
+            orch.demo_reset(fx["reviews"], fx["ads"])
+            return {"ok": True}
+
+        @app.post("/api/demo/ads/collide")
+        def demo_collide(b: CollideBody):
+            orch.providers["Ads"].demo_create(b.name)
             return {"ok": True}
 
         @app.post("/api/demo/audit/tamper")

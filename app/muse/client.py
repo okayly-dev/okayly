@@ -1,6 +1,7 @@
 """Thin wrapper over the OpenAI SDK pointed at the Meta Model API (Responses API).
 The key is read from the environment by the caller and never logged. Every call's token
 usage is written to the usage table so cost is visible."""
+import base64
 import os
 import time
 
@@ -10,6 +11,8 @@ BASE_URL = "https://api.meta.ai/v1"
 MODEL = "muse-spark-1.3"
 # $ per 1M tokens, from Meta's pricing page (checked 2026-10-26; recheck before relying on it)
 PRICE_IN, PRICE_CACHED, PRICE_OUT = 1.25, 0.15, 4.25
+IMAGE_MODEL = "muse-image-1.0"
+IMAGE_PRICE = 0.01  # $ per picture (spike, 2026-10-26)
 
 
 def cost_usd(input_tokens: int, cached_tokens: int, output_tokens: int) -> float:
@@ -54,3 +57,15 @@ class MuseClient:
             "INSERT INTO usage (ts, model, purpose, input_tokens, cached_tokens, output_tokens, cost_usd) VALUES (?,?,?,?,?,?,?)",
             (time.time(), self.model, purpose, u.input_tokens, cached, u.output_tokens, cost_usd(u.input_tokens, cached, u.output_tokens)),
         )
+
+    def generate_image(self, prompt: str, purpose: str = "ad_picture") -> bytes:
+        """One picture from Muse Image. The API returns base64, not a link."""
+        r = self.client.images.generate(model=IMAGE_MODEL, prompt=prompt, n=1)
+        b64 = (r.data[0].b64_json if getattr(r, "data", None) else None)
+        if not b64:
+            raise RuntimeError("Muse Image returned no picture")
+        if self.store is not None:
+            self.store.run(
+                "INSERT INTO usage (ts, model, purpose, input_tokens, cached_tokens, output_tokens, cost_usd) VALUES (?,?,?,?,?,?,?)",
+                (time.time(), IMAGE_MODEL, purpose, 0, 0, 0, IMAGE_PRICE))
+        return base64.b64decode(b64)

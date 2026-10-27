@@ -34,3 +34,20 @@ def test_usage_was_recorded(orch):
     u = orch.usage()
     print("\nusage:", u)
     assert u["calls"] >= 1 and u["cost_usd"] > 0
+
+
+def test_real_muse_ad_draft_with_pictures_checked_and_saved_paused(orch):
+    p = orch.propose_ad("Live test ad")
+    assert p["state"] == "PROPOSED", p
+    a = p["after"]
+    assert policy.check_ad(a["headline"], a["text"], orch.facts) == []
+    cands = p["extra"]["candidates"]
+    print(f"\nad: {a['headline']!r} / {a['text']!r}")
+    for i, c in enumerate(cands, 1):
+        print(f"  picture {i}: passed={c['passed']} {c['issues']} review={c['review']}")
+    assert any(c["passed"] for c in cands)
+    mime, data = orch.image(a["image_sha"])
+    assert policy.sniff_image(data) == mime
+    assert orch.approve(p["id"], p["hash"])["state"] == "VERIFIED"
+    assert orch.providers["Ads"].read_ad("Live test ad").status == "paused"
+    assert orch.audit.verify()["ok"] is True

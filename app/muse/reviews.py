@@ -6,6 +6,8 @@ its only output is a structured draft that code checks before a person sees it."
 import json
 from dataclasses import dataclass, field
 
+from .loop import DraftError, load_args, run_tool_loop
+
 SYSTEM = """You draft public replies to customer reviews for a dental practice. A person approves every reply before it is posted.
 Rules:
 - Never say or hint that the reviewer is a patient or visited. Never name a treatment, procedure or appointment.
@@ -41,11 +43,6 @@ TOOLS = [
      "description": "Read the practice's most recent replies, for tone only.",
      "parameters": {"type": "object", "additionalProperties": False, "required": ["limit"], "properties": {"limit": {"type": "integer"}}}},
 ]
-MAX_ROUNDS = 5
-
-
-class DraftError(Exception):
-    pass
 
 
 @dataclass
@@ -77,12 +74,9 @@ class MuseDrafter:
         self.ctx = context
 
     def _run_tool(self, name: str, raw_args: str) -> dict:
-        try:
-            args = json.loads(raw_args or "{}")
-        except ValueError:
-            return {"error": "arguments were not valid JSON"}
-        if not isinstance(args, dict):
-            return {"error": "arguments must be an object"}
+        args = load_args(raw_args)
+        if args is None:
+            return {"error": "arguments must be a JSON object"}
         if name == "reviews.get_review":
             if set(args) != {"review_id"} or not isinstance(args["review_id"], str):
                 return {"error": "expected {review_id: string}"}
@@ -105,17 +99,8 @@ class MuseDrafter:
         if feedback:
             prompt += (f"\n\nYour previous draft was blocked by our checks.\nPrevious draft: {feedback['reply']}\n"
                        f"Reasons: {' '.join(feedback['issues'])}\nWrite a new draft that fixes every reason.")
-        inp, prev = [{"role": "user", "content": prompt}], None
-        for _ in range(MAX_ROUNDS):
-            r = self.muse.respond(input=inp, instructions=SYSTEM, tools=TOOLS, text_format=DRAFT_FORMAT,
-                                  previous_response_id=prev, purpose="review_reply_draft")
-            calls = [o for o in r.output if o.type == "function_call"]
-            if not calls:
-                return parse_draft(r.output_text)
-            inp = [{"type": "function_call_output", "call_id": c.call_id,
-                    "output": json.dumps(self._run_tool(c.name, c.arguments))} for c in calls]
-            prev = r.id
-        raise DraftError("Muse kept calling tools and did not finish")
+        return run_tool_loop(self.muse, prompt=prompt, instructions=SYSTEM, tools=TOOLS, text_format=DRAFT_FORMAT,
+                             run_tool=self._run_tool, parse=parse_draft, purpose="review_reply_draft")
 
 
 class FixtureDrafter:

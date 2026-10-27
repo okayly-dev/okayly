@@ -5,8 +5,9 @@ import os
 import time
 from pathlib import Path
 
+from .muse.ads import FixtureAdStudio, MuseAdStudio
 from .muse.reviews import FixtureDrafter, MuseDrafter
-from .providers.sandbox import ManualYelp, SandboxGoogle
+from .providers.sandbox import ManualYelp, SandboxAdAccount, SandboxGoogle
 from .service import Orchestrator
 from .store import Store
 
@@ -22,12 +23,16 @@ def build(db_path: str | None = None, drafter: str | None = None, clock=time.tim
     drafter = drafter or os.environ.get("DRAFTER", "fixture")
     fx = load_fixture()
     store = Store(db_path)
-    providers = {"Google": SandboxGoogle(store), "Yelp": ManualYelp(store)}
+    providers = {"Google": SandboxGoogle(store), "Yelp": ManualYelp(store), "Ads": SandboxAdAccount(store)}
     providers["Google"].seed(fx["reviews"])
+    providers["Ads"].seed(fx["ads"])
     orch = Orchestrator(store, providers, None, fx["facts"], fx["past_replies"], clock=clock)
     if drafter == "muse":
         from .muse.client import MuseClient
-        orch.drafter = MuseDrafter(muse or MuseClient(store=store), orch.drafter_context())
+        muse = muse or MuseClient(store=store)
+        orch.drafter = MuseDrafter(muse, orch.drafter_context())
+        orch.ad_studio = MuseAdStudio(muse, orch.drafter_context())
     else:
         orch.drafter = FixtureDrafter(fx["fixture_drafts"])
+        orch.ad_studio = FixtureAdStudio(fx["fixture_ad"])
     return orch

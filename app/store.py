@@ -1,4 +1,4 @@
-"""SQLite storage. One connection, guarded by a re-entrant lock; transactions nest."""
+"""SQLite storage. proposals.review_id holds the resource id: a review id, or an ad name. One connection, guarded by a re-entrant lock; transactions nest."""
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -11,7 +11,14 @@ CREATE TABLE IF NOT EXISTS writes (idem TEXT PRIMARY KEY, review_id TEXT, applie
 CREATE TABLE IF NOT EXISTS proposals (
   id TEXT PRIMARY KEY, review_id TEXT, kind TEXT, state TEXT, reason TEXT, attempt INTEGER,
   before_json TEXT, after_json TEXT, hash TEXT, idem TEXT, provider TEXT, handoff INTEGER DEFAULT 0,
-  priority TEXT, first_draft_json TEXT, created_at REAL, expires_at REAL
+  priority TEXT, first_draft_json TEXT, created_at REAL, expires_at REAL, extra_json TEXT
+);
+-- the sandbox ad account: drafts only, always paused, and no budget column at all
+CREATE TABLE IF NOT EXISTS ads (
+  name TEXT PRIMARY KEY, status TEXT NOT NULL CHECK (status = 'paused'), headline TEXT, text TEXT, image_sha TEXT, format TEXT
+);
+CREATE TABLE IF NOT EXISTS images (
+  sha TEXT PRIMARY KEY, mime TEXT, data BLOB, prompt TEXT, review_json TEXT, passed INTEGER
 );
 CREATE TABLE IF NOT EXISTS events (
   seq INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT, type TEXT, plain TEXT, detail TEXT,

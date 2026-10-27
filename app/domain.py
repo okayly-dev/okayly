@@ -40,3 +40,13 @@ class ReviewState:
 class Issue:
     code: str
     message: str
+
+
+@dataclass(frozen=True)
+class AdState:
+    name: str
+    status: str
+    headline: str
+    text: str
+    image_sha: str | None
+    format: str
