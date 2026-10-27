@@ -1,32 +1,23 @@
-"""Sandbox providers. They implement the same small interface a real provider would:
-read the current state, write (executor only), and read back through the same read path.
+"""The write side of the sandbox providers. Only the executors hold these objects. They
+also keep the read methods (inherited from SandboxReader) so tests and demo controls can look
+at the result, but Muse and the workflows only ever get a plain SandboxReader.
 Google is writable; Yelp is read-only because no way for an app to post a Yelp reply was found."""
 import time
 
-from ..core.domain import AdState, ReviewState
+from .read import PLATFORMS, SandboxReader
 
 
 class ManualHandoff(Exception):
     """The platform cannot be written to by this app; a person posts the approved text."""
 
 
-class _Base:
+class _Base(SandboxReader):
     name = ""
     can_post = False
 
     def __init__(self, store):
+        super().__init__(store)
         self.store = store
-
-    @staticmethod
-    def _row(r) -> ReviewState:
-        return ReviewState(r["id"], r["platform"], r["stars"], r["who"], r["date"], r["text"], r["reply"])
-
-    def read_review(self, review_id: str) -> ReviewState | None:
-        r = self.store.one("SELECT * FROM reviews WHERE id=?", (review_id,))
-        return self._row(r) if r else None
-
-    def list_reviews(self) -> list[ReviewState]:
-        return [self._row(r) for r in self.store.all("SELECT * FROM reviews ORDER BY ord")]
 
     def seed(self, reviews: list[dict]) -> None:
         with self.store.tx():
@@ -47,8 +38,7 @@ class _Base:
 
 
 class SandboxGoogle(_Base):
-    name = "sandbox_google_profile"
-    can_post = True
+    name, can_post = PLATFORMS["Google"]
 
     def post_reply(self, review_id: str, reply: str, idem: str) -> None:
         """Idempotent: the same key never writes twice."""
@@ -60,8 +50,7 @@ class SandboxGoogle(_Base):
 
 
 class ManualYelp(_Base):
-    name = "manual_handoff_yelp"
-    can_post = False
+    name, can_post = PLATFORMS["Yelp"]
 
     def post_reply(self, review_id: str, reply: str, idem: str) -> None:
         raise ManualHandoff("Yelp does not let this app post replies.")
@@ -71,25 +60,14 @@ class NameTaken(Exception):
     """An ad with this name already exists in the account."""
 
 
-class SandboxAdAccount:
+class SandboxAdAccount(SandboxReader):
     """A practice ad account in miniature. It can read ads and create paused drafts. There is no
     method to switch an ad on and no budget field anywhere, so this app cannot spend money."""
-    name = "sandbox_ad_account"
-    can_post = True
+    name, can_post = PLATFORMS["Ads"]
 
     def __init__(self, store):
+        super().__init__(store)
         self.store = store
-
-    @staticmethod
-    def _row(r) -> AdState:
-        return AdState(r["name"], r["status"], r["headline"], r["text"], r["image_sha"], r["format"])
-
-    def read_ad(self, name: str) -> AdState | None:
-        r = self.store.one("SELECT * FROM ads WHERE name=?", (name,))
-        return self._row(r) if r else None
-
-    def list_ads(self) -> list[AdState]:
-        return [self._row(r) for r in self.store.all("SELECT * FROM ads ORDER BY rowid")]
 
     def seed(self, ads: list[dict]) -> None:
         with self.store.tx():
