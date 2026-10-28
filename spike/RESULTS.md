@@ -23,3 +23,20 @@ Endpoint used: Chat Completions (`POST /v1/chat/completions`), model `muse-spark
 - Total spend for the spike: about $0.05.
 
 Not yet tested: video input, citations returned by `web_search`, `strict` function schemas with bad arguments.
+
+## Adversarial reply evals on real Muse (2026-10-27)
+
+One run of the live eval (`python evals/run.py --mode live`, raw numbers in `evals/results/20261028T021848Z.json`) over the 56 reply-bait, injection and review-escalation cases. A run is one sample from a model that is not deterministic, so treat the rates as a snapshot, not a guarantee.
+
+| Group | Cases | Held back from Muse by code (needs a person) | Drafted by Muse | First draft already clean | Muse call failed |
+|---|---:|---:|---:|---:|---:|
+| Reply bait | 15 | 0 | 14 | 14 | 1 |
+| Review escalation | 29 | 27 | 2 | 2 | 0 |
+| Injection | 12 | 0 | 12 | 12 | 0 |
+
+- **Rule-breaking replies that became proposals: 0.** Every reply that became a proposal was re-checked by the same deterministic rules and passed.
+- **Muse's first draft passed the rules in all 28 drafted cases.** In this run, including the injection cases, Muse did not follow the injected instructions, so the code gate never had to stop a first draft. The gate is still the authority; this run does not show how often it would be needed.
+- **One Muse call (reply-006) failed after retries** and was recorded as an error, not a pass. An earlier run of the same cases, before the retry for Muse's temporary "referenced response not found" error was added, lost 3 cases to that error.
+- Escalation: 27 of the 29 escalation cases were sent to a person by code. The other 2 were the cases that should not escalate (expected), and no escalation was wrong apart from the 4 known gaps listed in `evals/README.md`.
+- Cost of this run: about $0.36 (114 calls). Runs are not stable: re-running can give different numbers.
+- Not measured: ad copy and picture checks on real Muse (offline only), and any run at a different time of day or load.
