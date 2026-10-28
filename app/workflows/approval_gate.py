@@ -37,8 +37,9 @@ def _authorize(rt, pid: str, seen_hash: str):
     if r["state"] != State.PROPOSED.value:
         raise InvalidTransition(f"This {m['noun']} is {r['state'].lower()}, so it cannot be approved.")
     if rt.clock() > r["expires_at"]:
-        proposals.move(rt.store, pid, State.REJECTED, "expired")
-        rt.audit.append("approval.expired", "Your OK came too late, so nothing was done.", "", pid)
+        with rt.store.tx():   # the new state and its audit entry are saved together, or not at all
+            proposals.move(rt.store, pid, State.REJECTED, "expired")
+            rt.audit.append("approval.expired", "Your OK came too late, so nothing was done.", "", pid)
         raise Expired("This approval request expired.")
     if seen_hash != r["hash"]:
         rt.audit.append("approval.refused", f"Your OK was for a different version of this {m['noun']}, so nothing was done.",

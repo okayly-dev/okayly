@@ -3,12 +3,12 @@ from ..providers.seed import seed_ads, seed_reviews
 
 
 def demo_reset(rt, reviews: list[dict], ads: list[dict] = ()) -> None:
-    with rt.store.tx():
+    with rt.store.tx():   # wipe and re-seed together, so a failed seed cannot leave the demo half empty
         for t in ("proposals", "events", "writes", "reviews", "ads", "images"):
             rt.store.run(f"DELETE FROM {t}")
         rt.store.run("DELETE FROM sqlite_sequence WHERE name='events'")
-    seed_reviews(rt.store, reviews)
-    seed_ads(rt.store, list(ads))
+        seed_reviews(rt.store, reviews)
+        seed_ads(rt.store, list(ads))
 
 
 def demo_tamper(rt, on: bool) -> dict:
