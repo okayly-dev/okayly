@@ -84,3 +84,42 @@ def test_image_call_records_cost():
     muse = MuseClient(store=store, client=FakeSDK(image=image), clock=lambda: 123.0)
     assert muse.generate_image("sample") == raw
     assert store.one("SELECT cost_usd FROM usage")["cost_usd"] == 0.01
+
+
+class FlakyReference:
+    """Fails with Muse's 'referenced response not found' error a set number of times, then succeeds."""
+    def __init__(self, failures):
+        self.failures, self.calls = failures, 0
+
+    def create(self, **_):
+        self.calls += 1
+        if self.calls <= self.failures:
+            raise FakeFailure(400, "Error code: 400 - referenced response not found or expired")
+        return SimpleNamespace(id="r2", output_text="{}", usage=None)
+
+
+def _flaky_client(failures):
+    sdk = SimpleNamespace(responses=FlakyReference(failures), images=None)
+    sleeps = []
+    return MuseClient(client=sdk, sleep=sleeps.append), sdk, sleeps
+
+
+def test_missing_response_reference_is_retried_then_succeeds():
+    muse, sdk, sleeps = _flaky_client(2)
+    assert muse.respond(input=[], previous_response_id="r1").id == "r2"
+    assert sdk.responses.calls == 3 and sleeps == [1.0, 2.0]
+
+
+def test_missing_response_reference_that_never_clears_is_unavailable_not_a_settings_problem():
+    muse, sdk, sleeps = _flaky_client(99)
+    with pytest.raises(MuseUnavailable):
+        muse.respond(input=[], previous_response_id="r1")
+    assert sdk.responses.calls == 4 and len(sleeps) == 3
+
+
+def test_other_bad_requests_are_not_retried():
+    sdk = FakeSDK(error=FakeFailure(400, "bad field"))
+    muse = MuseClient(client=sdk, sleep=lambda _s: pytest.fail("must not sleep"))
+    with pytest.raises(MuseRejected):
+        muse.respond(input=[], previous_response_id="r1")
+    assert sdk.responses.calls == 1
