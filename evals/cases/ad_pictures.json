@@ -1,0 +1,16 @@
+[
+  {"id":"picture-001","group":"ad_pictures","input":{"bytes":{"hex":"89504e470d0a1a0a"},"review":{"no_people":true,"no_before_after":true,"no_health_claim":true,"text_legible":true}},"expected":{"outcome":"passes"}},
+  {"id":"picture-002","group":"ad_pictures","input":{"bytes":{"hex":"ffd8ff00"},"review":{"no_people":true,"no_before_after":true,"no_health_claim":true,"text_legible":true}},"expected":{"outcome":"passes"}},
+  {"id":"picture-003","group":"ad_pictures","input":{"bytes":{"hex":"524946460000000057454250"},"review":{"no_people":true,"no_before_after":true,"no_health_claim":true,"text_legible":true}},"expected":{"outcome":"passes"}},
+  {"id":"picture-004","group":"ad_pictures","input":{"bytes":{"hex":"89504e470d0a1a0a"},"review":{"no_people":false,"no_before_after":true,"no_health_claim":true,"text_legible":true}},"expected":{"outcome":"blocked","issue_codes":["no_people"]}},
+  {"id":"picture-005","group":"ad_pictures","input":{"bytes":{"hex":"89504e470d0a1a0a"},"review":{"no_people":true,"no_before_after":false,"no_health_claim":true,"text_legible":true}},"expected":{"outcome":"blocked","issue_codes":["no_before_after"]}},
+  {"id":"picture-006","group":"ad_pictures","input":{"bytes":{"hex":"89504e470d0a1a0a"},"review":{"no_people":true,"no_before_after":true,"no_health_claim":false,"text_legible":true}},"expected":{"outcome":"blocked","issue_codes":["no_health_claim"]}},
+  {"id":"picture-007","group":"ad_pictures","input":{"bytes":{"hex":"89504e470d0a1a0a"},"review":{"no_people":true,"no_before_after":true,"no_health_claim":true,"text_legible":false}},"expected":{"outcome":"blocked","issue_codes":["text_legible"]}},
+  {"id":"picture-008","group":"ad_pictures","input":{"bytes":{"hex":"89504e470d0a1a0a"},"review":{"no_people":"true","no_before_after":true,"no_health_claim":true,"text_legible":true}},"expected":{"outcome":"blocked","issue_codes":["no_people"]}},
+  {"id":"picture-009","group":"ad_pictures","input":{"bytes":{"hex":"89504e470d0a1a0a"},"review":{"no_people":true,"no_before_after":true}},"expected":{"outcome":"blocked","issue_codes":["no_health_claim","text_legible"]}},
+  {"id":"picture-010","group":"ad_pictures","input":{"bytes":{"hex":"89504e470d0a1a0a"},"review":null},"expected":{"outcome":"blocked","issue_codes":["not_reviewed"]}},
+  {"id":"picture-011","group":"ad_pictures","input":{"bytes":{"hex":"3c7376673e"},"review":{"no_people":true,"no_before_after":true,"no_health_claim":true,"text_legible":true}},"expected":{"outcome":"blocked","issue_codes":["not_an_image"]}},
+  {"id":"picture-012","group":"ad_pictures","input":{"bytes":{"hex":"3c68746d6c3e"},"review":{"no_people":true,"no_before_after":true,"no_health_claim":true,"text_legible":true}},"expected":{"outcome":"blocked","issue_codes":["not_an_image"]}},
+  {"id":"picture-013","group":"ad_pictures","input":{"bytes":{"hex":"474946383961"},"review":{"no_people":true,"no_before_after":true,"no_health_claim":true,"text_legible":true}},"expected":{"outcome":"blocked","issue_codes":["not_an_image"]}},
+  {"id":"picture-014","group":"ad_pictures","input":{"bytes":{"hex":"89504e470d0a1a0a","size":8000001},"review":{"no_people":true,"no_before_after":true,"no_health_claim":true,"text_legible":true}},"expected":{"outcome":"blocked","issue_codes":["image_too_big"]}}
+]

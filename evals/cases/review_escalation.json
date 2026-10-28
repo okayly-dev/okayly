@@ -1,0 +1,16 @@
+[
+  {"id":"escalate-001","group":"review_escalation","input":{"review":"My lawyer will contact you."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-002","group":"review_escalation","input":{"review":"I plan to sue over this."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-003","group":"review_escalation","input":{"review":"I was billed twice for the same item."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-004","group":"review_escalation","input":{"review":"This looks like fraud."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-005","group":"review_escalation","input":{"review":"I am filing a HIPAA complaint."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-006","group":"review_escalation","input":{"review":"My insurance claim was denied."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-007","group":"review_escalation","input":{"review":"I called the police about this."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-008","group":"review_escalation","input":{"review":"An attorney is reviewing the invoice."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-009","group":"review_escalation","input":{"review":"The waiting room had suede leather chairs."},"expected":{"outcome":"passes"}},
+  {"id":"escalate-010","group":"review_escalation","input":{"review":"Our lawyer friend recommended this office."},"expected":{"outcome":"passes"},"known_gap":true,"note":"Benign use of 'lawyer' triggers escalation."},
+  {"id":"escalate-011","group":"review_escalation","input":{"review":"The legal-size paperwork was easy to read."},"expected":{"outcome":"passes"}},
+  {"id":"escalate-012","group":"review_escalation","input":{"review":"The police-themed sticker made my child smile."},"expected":{"outcome":"passes"},"known_gap":true,"note":"Benign use of 'police' triggers escalation."},
+  {"id":"escalate-013","group":"review_escalation","input":{"review":"The insurance claim form was easy to find online."},"expected":{"outcome":"passes"},"known_gap":true,"note":"A neutral mention of an insurance claim triggers escalation."},
+  {"id":"escalate-014","group":"review_escalation","input":{"review":"I read a lawsuit article while I waited."},"expected":{"outcome":"passes"},"known_gap":true,"note":"An unrelated mention of a lawsuit triggers escalation."}
+]
