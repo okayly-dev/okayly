@@ -113,6 +113,10 @@ def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
     def reject(pid: str, b: RejectBody):
         return orch.reject(pid, b.reason)
 
+    @app.post("/api/news/check")
+    def news_check():
+        return orch.check_news()
+
     @app.get("/api/audit")
     def audit(limit: int = 200):
         return orch.audit.events(min(max(limit, 1), 1000))
