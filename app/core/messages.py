@@ -1,5 +1,11 @@
 """The words the audit log and the interface use for each kind of change."""
 
+MUSE_UNAVAILABLE = "The drafting service is busy. Nothing was changed. Try again in a minute."
+MUSE_RATE_LIMITED = "The drafting service is handling too many requests. Nothing was changed. Try again in a minute."
+MUSE_REJECTED = "The drafting service could not accept the request. Nothing was changed. Please check the service settings."
+MUSE_BUDGET_REACHED = "The daily drafting limit has been reached. Nothing was changed. Try again tomorrow."
+MUSE_BAD_OUTPUT = "The drafting service did not return a usable draft. Nothing was changed. Try again."
+
 MSG = {
     "reply": dict(noun="reply", approved="You approved this reply.", rejected="You said not now to this reply.",
                   start="We are posting the reply now.",

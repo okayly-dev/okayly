@@ -2,11 +2,10 @@
 message must be the structured answer. The loop is capped so a confused model cannot spin."""
 import json
 
+from ..core.errors import DraftError
+from ..core.messages import MUSE_BAD_OUTPUT
+
 MAX_ROUNDS = 5
-
-
-class DraftError(Exception):
-    pass
 
 
 def load_args(raw: str | None) -> dict | None:
@@ -30,4 +29,4 @@ def run_tool_loop(muse, *, prompt: str, instructions: str, tools: list, text_for
         inp = [{"type": "function_call_output", "call_id": c.call_id,
                 "output": json.dumps(run_tool(c.name, c.arguments))} for c in calls]
         prev = r.id
-    raise DraftError("Muse kept calling tools and did not finish")
+    raise DraftError(MUSE_BAD_OUTPUT)

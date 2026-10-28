@@ -25,3 +25,27 @@ class PolicyViolation(OrchestratorError):
     def __init__(self, issues):
         super().__init__("; ".join(i.message for i in issues))
         self.issues = issues
+
+
+class MuseError(OrchestratorError):
+    status = 503
+
+
+class MuseUnavailable(MuseError):
+    pass
+
+
+class MuseRateLimited(MuseError):
+    status = 429
+
+
+class MuseRejected(MuseError):
+    pass
+
+
+class MuseBudgetReached(MuseError):
+    pass
+
+
+class DraftError(MuseError):
+    pass
