@@ -90,3 +90,47 @@ def test_image_type_comes_from_the_bytes():
     assert policy.sniff_image(b"GIF89a") is None
 
 
+
+
+# ---------- T2b: closed gaps (each pairs a blocked input with a near-miss that must stay clean) ----------
+@pytest.mark.parametrize("blocked,allowed", [
+    ("As one of our patients, your comments matter.", "As one of our neighbors, your comments matter."),
+    ("See you at your next routine cleaning.", "We hope your next week goes smoothly."),
+    ("We guarantee your next visit will be perfect.", "We hope your next visitor finds this useful."),
+])
+def test_patient_confirmation_variants_are_narrow(blocked, allowed):
+    assert "confirms_patient" in {i.code for i in policy.check_reply(blocked, rv(), FACTS)}
+    assert "confirms_patient" not in {i.code for i in policy.check_reply(allowed, rv(), FACTS)}
+
+
+@pytest.mark.parametrize("blocked,allowed", [
+    ("Visit hтtps://example.invalid/help for details.", "The hтtps protocol was mentioned."),
+    ("Visit www . example . invalid for details.", "The abbreviation www was discussed."),
+])
+def test_disguised_links_are_blocked_without_blocking_plain_text(blocked, allowed):
+    empty_facts = {"phones": [], "urls": []}
+    assert "unknown_link" in {i.code for i in policy.check_reply(blocked, rv(), empty_facts)}
+    assert "unknown_link" not in {i.code for i in policy.check_reply(allowed, rv(), empty_facts)}
+
+
+def test_free_treatment_is_a_promise_but_free_to_contact_is_not():
+    assert "promise" in {i.code for i in policy.check_reply("We offer a free implant.", rv(), FACTS)}
+    assert "promise" not in {i.code for i in policy.check_reply("Feel free to contact the office.", rv(), FACTS)}
+
+
+@pytest.mark.parametrize("text", [
+    "I am going to the police about this.", "I will start a lawsuit.", "A class action lawsuit is coming.",
+    "They submitted a fraudulent insurance claim in my name.", "You will hear from my lawyer.",
+])
+def test_serious_legal_and_fraud_reviews_still_need_a_person(text):
+    assert policy.needs_human(rv(text)) is not None
+
+
+def test_hyphenated_before_and_after_is_blocked_but_timing_is_not():
+    assert "before_after" in {i.code for i in policy.check_ad("Welcome", "See our before-and-after gallery.", FACTS)}
+    assert "before_after" not in {i.code for i in policy.check_ad("Welcome", "Call before or after work.", FACTS)}
+
+
+def test_spelled_out_star_rating_is_blocked_but_plain_star_word_is_not():
+    assert "results_claim" in {i.code for i in policy.check_ad("Five-Star Team", "A friendly local office.", FACTS)}
+    assert "results_claim" not in {i.code for i in policy.check_ad("Star Team", "A friendly local office.", FACTS)}
