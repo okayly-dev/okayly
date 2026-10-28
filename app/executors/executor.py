@@ -32,6 +32,12 @@ class Executor:
         else:
             self._writers[after["platform"]].post_reply(r["review_id"], after["reply"], r["idem"])
 
+    def _move_and_log(self, pid: str, state: State, reason: str, audit_type: str, plain: str, detail: str) -> None:
+        """Change the proposal's state and write its audit entry in one transaction (invariant 8)."""
+        with self.store.tx():
+            proposals.move(self.store, pid, state, reason)
+            self.audit.append(audit_type, plain, detail, pid)
+
     def execute(self, approved: ApprovedAction) -> dict:
         if not isinstance(approved, ApprovedAction):
             raise TypeError("The executor only accepts an ApprovedAction from the approval gate.")
@@ -56,25 +62,22 @@ class Executor:
             image = self.store.one("SELECT data, passed FROM images WHERE sha=?", (after["image_sha"],))
         why = readback.precondition_problem(r["kind"], before, after, self._current(r["kind"], after, r["review_id"]), image)
         if why:
-            proposals.move(self.store, pid, State.FAILED, "precondition_changed")
-            self.audit.append("execution.refused", m["refused"], f"precondition_changed; {why}; nothing written", pid)
+            self._move_and_log(pid, State.FAILED, "precondition_changed", "execution.refused", m["refused"],
+                               f"precondition_changed; {why}; nothing written")
             return proposals.view(proposals.row(self.store, pid))
         try:
             self._write(r, after)
         except ManualHandoff:
-            proposals.move(self.store, pid, State.FAILED, "manual_handoff_required")
-            self.audit.append("execution.refused", "This platform does not allow posting from the app.", "manual_handoff_required", pid)
+            self._move_and_log(pid, State.FAILED, "manual_handoff_required", "execution.refused",
+                               "This platform does not allow posting from the app.", "manual_handoff_required")
             return proposals.view(proposals.row(self.store, pid))
         except NameTaken:
-            proposals.move(self.store, pid, State.FAILED, "precondition_changed")
-            self.audit.append("execution.refused", m["refused"], "precondition_changed; an ad with this name already exists; nothing written", pid)
+            self._move_and_log(pid, State.FAILED, "precondition_changed", "execution.refused", m["refused"],
+                               "precondition_changed; an ad with this name already exists; nothing written")
             return proposals.view(proposals.row(self.store, pid))
-        proposals.move(self.store, pid, State.EXECUTED)
-        self.audit.append("execution.succeeded", m["done"], m["detail_done"], pid)
+        self._move_and_log(pid, State.EXECUTED, "", "execution.succeeded", m["done"], m["detail_done"])
         if readback.readback_matches(r["kind"], after, self._current(r["kind"], after, r["review_id"])):
-            proposals.move(self.store, pid, State.VERIFIED)
-            self.audit.append("verification.passed", m["ok"], "read-back equals expected", pid)
+            self._move_and_log(pid, State.VERIFIED, "", "verification.passed", m["ok"], "read-back equals expected")
         else:
-            proposals.move(self.store, pid, State.FAILED, "verification_mismatch")
-            self.audit.append("verification.failed", m["bad"], "read-back differs", pid)
+            self._move_and_log(pid, State.FAILED, "verification_mismatch", "verification.failed", m["bad"], "read-back differs")
         return proposals.view(proposals.row(self.store, pid))
