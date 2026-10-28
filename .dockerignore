@@ -1,0 +1,14 @@
+# Keeps git history, test folders, local data and any .env file out of the image.
+.git
+.venv
+tests
+evals
+spike
+bench
+data
+__pycache__
+*.py[cod]
+.env
+.env.*
+**/.env
+**/.env.*
