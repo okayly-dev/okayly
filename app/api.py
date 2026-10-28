@@ -8,7 +8,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from .core.errors import OrchestratorError, PolicyViolation
+from .core.errors import DraftError, OrchestratorError, PolicyViolation
+from .core.messages import MUSE_BAD_OUTPUT
 from .wiring import build, load_fixture
 
 
@@ -58,7 +59,7 @@ def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
 
     @app.exception_handler(OrchestratorError)
     async def handle(_: Request, e: OrchestratorError):
-        body = {"error": str(e)}
+        body = {"error": MUSE_BAD_OUTPUT if isinstance(e, DraftError) else str(e)}
         if isinstance(e, PolicyViolation):
             body["issues"] = [{"code": i.code, "message": i.message} for i in e.issues]
         return JSONResponse(body, status_code=e.status)
@@ -122,7 +123,15 @@ def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
 
     @app.get("/api/usage")
     def usage():
-        return orch.usage()
+        out = orch.usage()
+        now = orch.rt.clock()
+        start = now - now % 86400
+        row = orch.store.one("SELECT COALESCE(SUM(cost_usd), 0) usd FROM usage WHERE ts>=? AND ts<?",
+                             (start, start + 86400))
+        spent = round(float(row["usd"]), 6)
+        cap = orch.daily_spend_cap_usd
+        return {**out, "cap_usd": cap, "spent_today_usd": spent,
+                "remaining_usd": round(max(0.0, cap - spent), 6)}
 
     if demo:
         @app.post("/api/demo/reviews/{review_id}/edit")
