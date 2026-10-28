@@ -17,6 +17,9 @@ PRICE_IN, PRICE_CACHED, PRICE_OUT = 1.25, 0.15, 4.25
 IMAGE_MODEL = "muse-image-1.0"
 IMAGE_PRICE = 0.01  # $ per picture (spike, 2026-10-26)
 DEFAULT_DAILY_SPEND_CAP_USD = 2.00
+# Muse sometimes answers 400 'referenced response not found or expired' for a response it just made
+# (seen in 3 of 55 live eval cases). It is temporary, so the call is repeated a few times.
+RETRY_DELAYS = (1.0, 2.0, 4.0)
 
 
 def cost_usd(input_tokens: int, cached_tokens: int, output_tokens: int) -> float:
@@ -26,7 +29,7 @@ def cost_usd(input_tokens: int, cached_tokens: int, output_tokens: int) -> float
 
 class MuseClient:
     def __init__(self, store=None, api_key: str | None = None, base_url: str = BASE_URL, model: str = MODEL,
-                 client=None, daily_spend_cap_usd: float = DEFAULT_DAILY_SPEND_CAP_USD, clock=time.time):
+                 client=None, daily_spend_cap_usd: float = DEFAULT_DAILY_SPEND_CAP_USD, clock=time.time, sleep=time.sleep):
         key = api_key or os.environ.get("MODEL_API_KEY")
         if client is None:
             if not key:
@@ -38,6 +41,7 @@ class MuseClient:
         self.store = store
         self.daily_spend_cap_usd = daily_spend_cap_usd
         self.clock = clock
+        self.sleep = sleep
 
     def spent_today_usd(self) -> float:
         if self.store is None:
@@ -53,8 +57,14 @@ class MuseClient:
             raise MuseBudgetReached(MUSE_BUDGET_REACHED)
 
     @staticmethod
+    def _missing_reference(exc: Exception) -> bool:
+        return "referenced response" in str(exc).lower()
+
+    @staticmethod
     def _raise_plain(exc: Exception) -> None:
         status = getattr(exc, "status_code", None)
+        if MuseClient._missing_reference(exc):
+            raise MuseUnavailable(MUSE_UNAVAILABLE) from None
         if isinstance(exc, RateLimitError) or status == 429:
             raise MuseRateLimited(MUSE_RATE_LIMITED) from None
         if isinstance(exc, (APITimeoutError, APIConnectionError)) or (isinstance(status, int) and status >= 500):
@@ -76,10 +86,15 @@ class MuseClient:
             kw["text"] = text_format
         if previous_response_id:
             kw["previous_response_id"] = previous_response_id
-        try:
-            r = self.client.responses.create(**kw)
-        except Exception as exc:
-            self._raise_plain(exc)
+        for delay in (*RETRY_DELAYS, None):
+            try:
+                r = self.client.responses.create(**kw)
+                break
+            except Exception as exc:
+                if delay is not None and previous_response_id and self._missing_reference(exc):
+                    self.sleep(delay)
+                    continue
+                self._raise_plain(exc)
         self._record(r, purpose)
         return r
 
