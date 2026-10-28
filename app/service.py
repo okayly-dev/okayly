@@ -17,6 +17,7 @@ class Orchestrator:
     def __init__(self, store, providers: dict, drafter, facts: dict, past_replies: list[str], clock=time.time, ttl: int = TTL_SECONDS,
                  ad_studio=None):
         self.store, self.providers = store, providers
+        self.news = None   # a workflows.news.NewsCheck, set by wiring
         reader = SandboxReader(store)
         self.rt = Runtime(store, reader, drafter, ad_studio, facts, past_replies, clock, ttl)
         self.audit = self.rt.audit
@@ -37,6 +38,9 @@ class Orchestrator:
     @ad_studio.setter
     def ad_studio(self, value):
         self.rt.ad_studio = value
+
+    def check_news(self) -> dict:
+        return self.news.run()
 
     def drafter_context(self):
         return queries.drafter_context(self.rt)

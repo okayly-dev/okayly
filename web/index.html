@@ -486,7 +486,7 @@ function init(){if(UP&&typeof URL!=='undefined'&&URL.revokeObjectURL)URL.revokeO
   const keep=S?{under:S.under}:{under:false};
   S={tab:'week',under:keep.under,acts:{},rev:Object.fromEntries(REVIEWS.map(r=>[r.id,{text:r.text,reply:r.reply}])),editing:null,rmsg:null,rfilter:'all',copied:null,ads:[{name:'Welcome new patients (sample)',status:'paused',picture:'-'}],events:[],clock:Date.parse('2026-10-26T10:21:30Z'),
    checking:-1,rejecting:null,sim:{rv1:false,ad:false},open:{},tamper:false,verify:null,quiet:false,ideas:[],
-   news:{sub:'feed',filter:'all',saved:{},hidden:{},checking:false,msg:''},
+   news:{sub:'feed',filter:'all',saved:{},hidden:{},checking:false,msg:'',live:null,busy:false,err:''},
    cfg:{freq:'daily',time:'6:00 am',cap:3,numbers:true,audio:true,rate:1,topics:{news:true,near:true,industry:false,local:false,reviews:false},
      practices:[{name:'Springfield Smiles',url:'springfieldsmiles.example'},{name:'Maple Street Dental',url:'maplestreetdental.example'},{name:'Oak Park Dentistry',url:'oakparkdentistry.example'}]}};
   ['rv1','rv2','rv3'].forEach(k=>{if(REVIEWS.some(r=>r.key===k))S.acts[k]=newReply(k,1)});S.acts.ad=newAct('ad',1,{exists:false});
@@ -662,7 +662,21 @@ function postHtml(f){const saved=!!S.news.saved[f.id],listening=AUD.on&&AUD.sing
    <div class="act"><button class="btn out sm" data-act="post-listen" data-id="${f.id}">${listening?'Stop':'Listen'}</button><button class="btn quiet sm" data-act="post-save" data-id="${f.id}" aria-pressed="${saved}">${saved?'&#10003; Saved':'Save'}</button>${f.idea?(S.ideas.includes(f.idea)?'<button class="btn quiet sm" disabled>&#10003; In your ideas</button>':`<button class="btn quiet sm" data-act="post-idea" data-id="${f.id}">Add to my ideas</button>`):''}<button class="btn quiet sm" data-act="post-hide" data-id="${f.id}">Show fewer like this</button></div></article>`}
 function updateSummary(){const c=S.cfg,on=Object.keys(TOPICS).filter(k=>c.topics[k]).map(k=>TOPICS[k].label.toLowerCase());const fq=c.freq==='daily'?'every day at '+c.time:c.freq==='weekly'?'once a week, Monday at '+c.time:'only when something matters';
   return `Up to ${c.cap} ${c.cap===1?'note':'notes'} ${fq}, about ${on.join(', ')||'nothing yet'}. Watching ${c.practices.length} ${c.practices.length===1?'practice':'practices'}. Audio is ${c.audio?'on':'off'}.`}
-function vNews(){if(S.news.sub==='config')return vConfig();
+const NEWS_KIND_CLASS={Official:'s-ok','Trade press':'s-idle',Sample:'s-idle'};
+function newsNoteLive(n){return `<article class="card" style="padding:20px 24px"><span class="kind">${esc(n.source)} &middot; ${esc(n.kind)} &middot; ${esc(n.date)}</span><h3 style="margin:4px 0 8px">${esc(n.title)}</h3><p>${esc(n.summary)}</p>
+  <p class="small muted" style="margin-top:10px">${n.kind==='Sample'?'Made-up sample item':`<a href="${esc(n.link)}" target="_blank" rel="noopener noreferrer">Read the original</a>`}</p></article>`}
+function vNewsLive(){const N=S.news,r=N.live;let body='';
+  if(N.err)body+=`<p class="why" role="status">${esc(N.err)}</p>`;
+  if(r){
+    if(r.mode==='sample')body+=`<p class="small muted" style="margin-bottom:12px">These are made-up samples. Run with the real model to read real feeds.</p>`;
+    body+=r.notes.length?`<div class="stack" style="gap:16px">${r.notes.map(newsNoteLive).join('')}</div>`
+      :`<div class="quietday"><b>Nothing relevant right now.</b> We checked ${r.sources_checked} ${r.sources_checked===1?'source':'sources'} and did not add filler.</div>`;
+    if(r.sources_failed.length)body+=`<p class="small muted" style="margin-top:12px">Could not read: ${r.sources_failed.map(esc).join(', ')}.</p>`}
+  else if(!N.busy)body+=`<div class="quietday">Press <b>Check now</b> to read the latest from the sources we trust.</div>`;
+  return `<div class="row" style="justify-content:space-between"><div><h1>News</h1><p class="lead">What changed in search and ad rules. Nothing runs on its own: you press the button.</p></div><button class="btn" data-act="news-live" ${N.busy?'disabled':''}>${N.busy?'Checking&hellip;':'Check now'}</button></div>
+  <div style="margin-top:18px">${body}</div>
+  <p class="fine" style="margin-top:22px">With the real model, we read feeds from a short list of official and trade sources: the link, date and source come from the feed, Muse writes the one-line summary from the article's own text, and code decides what is shown. In the sample demo the items are made up.</p>`}
+function vNews(){if(LIVE)return vNewsLive();if(S.news.sub==='config')return vConfig();
   const c=S.cfg,flt=S.news.filter,vis=feedVisible();const hid=Object.keys(S.news.hidden).length;
   const filterOk=f=>flt==='all'||(flt==='saved'?S.news.saved[f.id]:f.kind===flt);
   const chips=[['all','All'],...Object.keys(TOPICS).filter(k=>c.topics[k]).map(k=>[k,TOPICS[k].label]),['saved','Saved']];
@@ -736,7 +750,7 @@ function vAds(){if(LIVE)return `<div><h1>Ads</h1><p class="lead">Draft an ad, ch
 
 function loadingCard(){return `<section class="card"><h2 style="margin-bottom:14px">Reading your reviews and writing replies...</h2><div class="prog"><div class="fin"><b>&#10003;</b>Reading your Google and Yelp reviews</div><div class="on"><b>2</b>Writing draft replies with Muse</div><div><b>3</b>Checking each reply against your privacy rules</div></div><p class="fine">Muse reads each review and your practice details, then a rule check runs before you see anything.</p></section>`}
 function render(){const n=todayList().length;
-  $('#tabs').innerHTML=[['week','This week',pending().length],['reviews','Reviews',revPending().length],['news','News',n],['ads','Ads',0]].map(t=>`<button data-act="tab" data-tab="${t[0]}" ${S.tab===t[0]?'aria-current="page"':''}>${t[1]}${t[2]?`<span class="n">${t[2]}</span>`:''}</button>`).join('');
+  $('#tabs').innerHTML=[['week','This week',pending().length],['reviews','Reviews',revPending().length],['news','News',LIVE?0:n],['ads','Ads',0]].map(t=>`<button data-act="tab" data-tab="${t[0]}" ${S.tab===t[0]?'aria-current="page"':''}>${t[1]}${t[2]?`<span class="n">${t[2]}</span>`:''}</button>`).join('');
   $('#sw').setAttribute('aria-checked',String(S.under));
   $('#main').innerHTML=(S.loading&&(S.tab==='week'||S.tab==='reviews'))?loadingCard():({week:vWeek,reviews:vReviews,news:vNews,ads:vAds})[S.tab]()}
 
@@ -832,6 +846,7 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
    case 'post-idea':{const f=FEED.find(x=>x.id===el.dataset.id);if(!S.ideas.includes(f.idea)){S.ideas.push(f.idea);addEvent('idea.added','You added an idea from the news: '+f.idea+'. It is only an idea until you approve something.','idea stored; no action proposed')}render();break}
    case 'post-hide':{const f=FEED.find(x=>x.id===el.dataset.id);S.news.hidden[f.id]=true;addEvent('brief.hidden','You asked for fewer notes like "'+f.title+'".','preference stored; item hidden');render();break}
    case 'news-unhide':S.news.hidden={};render();break;
+   case 'news-live':{if(S.news.busy)break;S.news.busy=true;S.news.err='';render();api('POST','/news/check').then(r=>{S.news.live=r}).catch(e=>{S.news.err=e.message}).then(()=>{S.news.busy=false;render()});break}
    case 'news-check':{S.news.checking=true;render();setTimeout(()=>{S.news.checking=false;addEvent('brief.generated','We checked again. Nothing new since this morning.','muse-spark-1.3 web_search x4; webcrawl diff x'+S.cfg.practices.length+'; 0 new candidates');render()},1500);break}
    /* configure */
    case 'open-config':S.tab='news';S.news.sub='config';render();window.scrollTo(0,0);break;

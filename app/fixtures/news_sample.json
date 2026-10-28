@@ -1,0 +1,9 @@
+{
+  "note": "Sample items for the no-spend demo. They are made up and labelled as samples in the interface.",
+  "items": [
+    {"source": "Sample feed", "days_ago": 1, "title": "Sample: a change to how review replies are shown",
+     "link": "https://example.invalid/sample-1", "text": "Sample text. A platform is testing a new place for business replies to reviews on local listings."},
+    {"source": "Sample feed", "days_ago": 3, "title": "Sample: new rules for health ads",
+     "link": "https://example.invalid/sample-2", "text": "Sample text. Advertisers in health care will need to confirm their business details before new ads run."}
+  ]
+}

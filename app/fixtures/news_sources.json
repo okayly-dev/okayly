@@ -1,0 +1,35 @@
+{
+  "note": "The feeds the News card may read. Chosen by the owner. Only sites on this list can appear. Add or remove a source here.",
+  "sources": [
+    {
+      "name": "Google Ads blog",
+      "url": "https://blog.google/products/ads-commerce/rss/",
+      "kind": "Official",
+      "host": "blog.google"
+    },
+    {
+      "name": "Google Maps blog",
+      "url": "https://blog.google/products/maps/rss/",
+      "kind": "Official",
+      "host": "blog.google"
+    },
+    {
+      "name": "Google Search Central",
+      "url": "https://developers.google.com/search/blog/feed.xml",
+      "kind": "Official",
+      "host": "developers.google.com"
+    },
+    {
+      "name": "Google blog",
+      "url": "https://blog.google/rss/",
+      "kind": "Official",
+      "host": "blog.google"
+    },
+    {
+      "name": "Search Engine Roundtable",
+      "url": "https://www.seroundtable.com/index.rdf",
+      "kind": "Trade press",
+      "host": "seroundtable.com"
+    }
+  ]
+}
