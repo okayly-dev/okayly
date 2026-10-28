@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree
 
+MAX_TITLE_CHARS = 200
 MAX_BYTES = 1_500_000   # a feed bigger than this is refused
 TIMEOUT_SECONDS = 15
 USER_AGENT = "okayly-news/0.1 (reads public feeds)"
@@ -19,6 +20,15 @@ class FeedItem:
     link: str
     published: datetime
     text: str
+
+
+class SecureRedirects(urllib.request.HTTPRedirectHandler):
+    """Follow a redirect only if it stays on a secure address."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not newurl.startswith("https://"):
+            raise FeedError("The feed moved to an address that is not secure.")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 class FeedError(Exception):
@@ -62,7 +72,7 @@ def parse_feed(xml_text: str) -> list[FeedItem]:
         link, title = _child_text(node, "link"), _child_text(node, "title")
         if published and link and title:
             text = _child_text(node, "description") or _child_text(node, "summary")
-            items.append(FeedItem(_plain(title), link, published, _plain(text)))
+            items.append(FeedItem(_plain(title)[:MAX_TITLE_CHARS], link, published, _plain(text)))
     return items
 
 
@@ -71,8 +81,10 @@ def fetch_feed(url: str) -> list[FeedItem]:
         raise FeedError("Only secure feed addresses are read.")
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+        with urllib.request.build_opener(SecureRedirects).open(request, timeout=TIMEOUT_SECONDS) as response:
             body = response.read(MAX_BYTES + 1)
+    except FeedError:
+        raise
     except Exception as e:
         raise FeedError("The feed could not be reached.") from e
     if len(body) > MAX_BYTES:

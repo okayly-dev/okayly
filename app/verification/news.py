@@ -39,7 +39,7 @@ def keep_item(item, source: dict, now: datetime) -> bool:
 def summary_ok(summary: str) -> bool:
     """One short plain sentence: no links, not empty, not long."""
     s = summary.strip()
-    return bool(s) and len(s) <= MAX_SUMMARY_CHARS and not re.search(r"https?://|www\.|\S+\.(com|org|net)\b", s, re.I)
+    return bool(s) and len(s) <= MAX_SUMMARY_CHARS and not re.search(r"https?://|www\.|\b[\w-]+\.(com|org|net|io|co|gov|edu|info|dev|app|ai|us)\b", s, re.I)
 
 
 def show_order(pair) -> tuple:

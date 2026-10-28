@@ -675,7 +675,7 @@ function vNewsLive(){const N=S.news,r=N.live;let body='';
   else if(!N.busy)body+=`<div class="quietday">Press <b>Check now</b> to read the latest from the sources we trust.</div>`;
   return `<div class="row" style="justify-content:space-between"><div><h1>News</h1><p class="lead">What changed in search and ad rules. Nothing runs on its own: you press the button.</p></div><button class="btn" data-act="news-live" ${N.busy?'disabled':''}>${N.busy?'Checking&hellip;':'Check now'}</button></div>
   <div style="margin-top:18px">${body}</div>
-  <p class="fine" style="margin-top:22px">We only read feeds from a short list of official and trade sources. The link, date and source come from the feed. Muse writes the one-line summary from the article's own text, and code decides what is shown.</p>`}
+  <p class="fine" style="margin-top:22px">With the real model, we read feeds from a short list of official and trade sources: the link, date and source come from the feed, Muse writes the one-line summary from the article's own text, and code decides what is shown. In the sample demo the items are made up.</p>`}
 function vNews(){if(LIVE)return vNewsLive();if(S.news.sub==='config')return vConfig();
   const c=S.cfg,flt=S.news.filter,vis=feedVisible();const hid=Object.keys(S.news.hidden).length;
   const filterOk=f=>flt==='all'||(flt==='saved'?S.news.saved[f.id]:f.kind===flt);

@@ -51,6 +51,18 @@ def test_unreadable_feed_is_a_plain_error():
         parse_feed("<rss><item>")
 
 
+def test_a_redirect_to_a_plain_http_address_is_refused():
+    from app.providers.feeds import SecureRedirects
+    handler = SecureRedirects()
+    with pytest.raises(FeedError):
+        handler.redirect_request(None, None, 302, "Found", {}, "http://blog.google/x")
+
+
+def test_long_titles_are_cut():
+    xml = f"<rss><item><title>{'a' * 500}</title><link>https://blog.google/a</link><pubDate>Tue, 27 Oct 2026 10:00:00 +0000</pubDate></item></rss>"
+    assert len(parse_feed(xml)[0].title) == 200
+
+
 def test_only_secure_addresses_are_fetched():
     with pytest.raises(FeedError):
         fetch_feed("http://blog.google/rss/")
@@ -85,6 +97,7 @@ def test_items_about_nothing_relevant_are_dropped():
     ("Read more at https://example.com/a", False),
     ("See www.example.com", False),
     ("Visit example.com for details", False),
+    ("Visit evil.io for details", False),
 ])
 def test_summary_rules(summary, ok):
     assert rules.summary_ok(summary) is ok
