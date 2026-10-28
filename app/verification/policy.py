@@ -1,6 +1,7 @@
 """Rules that run on every reply, from Muse or from a person. Deterministic code, not a prompt:
 a reply that breaks a rule cannot become a proposal, and cannot be saved after an edit."""
 import re
+import unicodedata
 
 from ..core.domain import Issue, ReviewState
 
@@ -9,10 +10,17 @@ MAX_CHARS = 600
 _VISIT = re.compile(
     r"\b(your|the)\s+(visit|appointment|treatment|procedure|crown|root canal|implant|filling|cleaning|"
     r"extraction|surgery|whitening|braces|invisalign|x-?rays?)\b|\bas (our|a) patient\b|\bour patient\b|"
+    r"\byour\s+next(?:\s+\w+)?\s+(visit|appointment|treatment|procedure|crown|root canal|implant|filling|cleaning|"
+    r"extraction|surgery|whitening|braces|invisalign|x-?rays?)\b|\bas one of our patients\b|"
     r"\byou (came|visited|were seen)\b|\bwhen you (came|visited)\b",
     re.I,
 )
-_PROMISE = re.compile(r"(guarantee|refund|free of charge|free of cost|we promise|100%|next visit will|discount)", re.I)
+_PROMISE = re.compile(
+    r"(guarantee|refund|free of charge|free of cost|we promise|100%|next visit will|discount|"
+    r"\bfree\s+(?:implant|filling|cleaning|extraction|whitening|braces|invisalign|x-?rays?|"
+    r"crown|root canal|treatment|procedure|surgery)\b)",
+    re.I,
+)
 _HEALTH = re.compile(r"\b(pain|infection|antibiotic|medication|swelling|bleeding|you should (take|use|try|see))\b", re.I)
 _PHONE = re.compile(r"\+?\(?\d{3}\)?[\s.‑-]?\d{3}[\s.‑-]?\d{4}")
 _URL = re.compile(r"(https?://|www\.)\S+", re.I)
@@ -21,6 +29,15 @@ _ESCALATE = re.compile(
     r"overcharg\w*|fraud|insurance claim|police|report you)\b",
     re.I,
 )
+
+_LINK_CONFUSABLES = str.maketrans({
+    "а": "a", "с": "c", "е": "e", "і": "i", "о": "o", "р": "p", "ѕ": "s", "т": "t", "х": "x",
+})
+
+
+def _normalize_for_link_check(text: str) -> str:
+    normalized = unicodedata.normalize("NFKC", text).translate(_LINK_CONFUSABLES)
+    return re.sub(r"\s*\.\s*", ".", normalized)
 
 
 def needs_human(review: ReviewState) -> str | None:
@@ -54,7 +71,7 @@ def check_reply(text: str, review: ReviewState | None = None, facts: dict | None
             if re.sub(r"\D", "", m.group(0)) not in allowed:
                 out.append(Issue("unknown_phone", "That phone number is not one of your practice details."))
                 break
-        if _URL.search(x) and not facts.get("urls"):
+        if _URL.search(_normalize_for_link_check(x)) and not facts.get("urls"):
             out.append(Issue("unknown_link", "Do not add links that are not in your practice details."))
     return out
 
@@ -71,10 +88,15 @@ AD_RULES_TEXT = (
     "Pictures: no people, no before-and-after, no health claims, any text large enough to read on a phone."
 )
 
-_BEFORE_AFTER = re.compile(r"before\s*(and|&|/|-)\s*after|\btransformation\b|\bmakeover\b", re.I)
+_BEFORE_AFTER = re.compile(
+    r"before\s*(?:[-–—]\s*(?:and|&|/)\s*[-–—]|(?:and|&|/)|[-–—])\s*after|"
+    r"\btransformation\b|\bmakeover\b",
+    re.I,
+)
 _RESULTS = re.compile(
     r"(guarantee\w*|painless|pain-?free|\bcures?\b|\bcured\b|risk-?free|perfect smile|results? (in|within)|"
-    r"best (dentist|dental)|#\s?1|number one|top-?rated|award|\b\d(\.\d)?\s*(stars?|★)|\brated\b)", re.I)
+    r"best (dentist|dental)|#\s?1|number one|top-?rated|award|"
+    r"\b(?:one|two|three|four|five)[-\s]+stars?\b|\b\d(\.\d)?\s*(stars?|★)|\brated\b)", re.I)
 _PRICE = re.compile(r"(\$\s?\d|\d+\s?%\s?off|\bfree\b|discount|\bsale\b|\bcoupon\b)", re.I)
 _PROOF = re.compile(r"(our patients|patients (say|love|trust|agree)|testimonial|reviews? (say|show)|thousands of)", re.I)
 _PERSONAL_HEALTH = re.compile(r"\b(your (pain|infection|gum disease|cavit\w+|decay)|fix your|heal\w*)\b", re.I)

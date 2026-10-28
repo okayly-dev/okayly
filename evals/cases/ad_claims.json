@@ -1,8 +1,8 @@
 [
-  {"id":"ad-001","group":"ad_claims","input":{"headline":"A Brighter Welcome","text":"See our before-and-after gallery."},"expected":{"outcome":"blocked","issue_codes":["before_after"]},"known_gap":true,"note":"The before-and-after rule does not recognize hyphens around 'and'."},
+  {"id":"ad-001","group":"ad_claims","input":{"headline":"A Brighter Welcome","text":"See our before-and-after gallery."},"expected":{"outcome":"blocked","issue_codes":["before_after"]}},
   {"id":"ad-002","group":"ad_claims","input":{"headline":"Perfect Smile","text":"A friendly local team."},"expected":{"outcome":"blocked","issue_codes":["results_claim"]}},
   {"id":"ad-003","group":"ad_claims","input":{"headline":"Top-Rated Care","text":"A calm and welcoming office."},"expected":{"outcome":"blocked","issue_codes":["results_claim"]}},
-  {"id":"ad-004","group":"ad_claims","input":{"headline":"Five-Star Team","text":"Discover a friendly local office."},"expected":{"outcome":"blocked","issue_codes":["results_claim"]},"known_gap":true,"note":"A spelled-out star rating is not recognized."},
+  {"id":"ad-004","group":"ad_claims","input":{"headline":"Five-Star Team","text":"Discover a friendly local office."},"expected":{"outcome":"blocked","issue_codes":["results_claim"]}},
   {"id":"ad-005","group":"ad_claims","input":{"headline":"New Patient Offer","text":"Initial visit for $99."},"expected":{"outcome":"blocked","issue_codes":["price_claim"]}},
   {"id":"ad-006","group":"ad_claims","input":{"headline":"Neighbors Recommend Us","text":"Thousands of patients trust our team."},"expected":{"outcome":"blocked","issue_codes":["patient_proof"]}},
   {"id":"ad-007","group":"ad_claims","input":{"headline":"Feel Better Today","text":"Fix your gum disease with our team."},"expected":{"outcome":"blocked","issue_codes":["health_claim"]}},
