@@ -1,3 +1,4 @@
+# Caddy settings: HTTPS reverse proxy to the app, with security headers and optional password.
 {$SITE_ADDRESS} {
     # Optional password protection. Generate a hash with:
     # docker compose exec caddy caddy hash-password

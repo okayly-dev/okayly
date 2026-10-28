@@ -1,4 +1,4 @@
-# Put the demo on one AWS server
+# Put the demo on one AWS server (runbook)
 
 This runbook is for the owner. The server runs sample data and sandbox providers only. It holds no real posting credential. Check AWS's current pricing page before creating resources, and keep the existing billing alert enabled.
 

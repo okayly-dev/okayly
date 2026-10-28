@@ -1,3 +1,4 @@
+# Builds the app image: Python, pinned requirements, app/ and web/ only, runs as a non-root user.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -7,7 +8,8 @@ WORKDIR /app
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
-    && useradd --create-home --uid 10001 appuser
+    && useradd --create-home --uid 10001 appuser \
+    && mkdir /data && chown appuser:appuser /data
 
 COPY --chown=appuser:appuser app/ app/
 COPY --chown=appuser:appuser web/ web/

@@ -1,3 +1,4 @@
+# Runs the app (private) and Caddy (HTTPS, the only public door) on one server.
 services:
   app:
     build:
@@ -13,8 +14,8 @@ services:
 
   caddy:
     image: caddy:2
-    env_file:
-      - .env
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env}
     ports:
       - "80:80"
       - "443:443"

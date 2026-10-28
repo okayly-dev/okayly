@@ -1,3 +1,4 @@
+# Keeps git history, test folders, local data and any .env file out of the image.
 .git
 .venv
 tests
