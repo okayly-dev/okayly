@@ -134,3 +134,35 @@ def test_hyphenated_before_and_after_is_blocked_but_timing_is_not():
 def test_spelled_out_star_rating_is_blocked_but_plain_star_word_is_not():
     assert "results_claim" in {i.code for i in policy.check_ad("Five-Star Team", "A friendly local office.", FACTS)}
     assert "results_claim" not in {i.code for i in policy.check_ad("Star Team", "A friendly local office.", FACTS)}
+
+
+@pytest.mark.parametrize("text", [
+    "We are going to court over this bill.",
+    "I'm filing a complaint with the dental board.",
+    "I have retained counsel.",
+    "See you in court.",
+    "I will take this to small claims.",
+    "I am taking this to court.",
+    "I sent a complaint to the state dental board.",
+    "I will write to the licensing board.",
+    "I am contacting the board of dentistry.",
+    "I am contacting the attorney general.",
+    "I will file a Better Business Bureau complaint.",
+    "My counsel will be in touch.",
+    "I have spoken with legal counsel.",
+    "I retained an attorney yesterday.",
+    "I am reporting this office to the state regulator.",
+])
+def test_court_regulator_and_counsel_reviews_need_a_person(text):
+    assert policy.needs_human(rv(text)) is not None
+
+
+@pytest.mark.parametrize("text", [
+    "My lawyer will contact you.", "An attorney is reviewing the invoice.", "I plan to sue over this.",
+    "I will start a lawsuit.", "I am considering legal action.", "This is malpractice.",
+    "I am filing a HIPAA complaint.", "I was billed twice for the same item.", "This looks like fraud.",
+    "My insurance claim was denied.", "I called the police about this.", "I will report you.",
+    "I was double billed and overcharged.",
+])
+def test_earlier_legal_and_billing_phrasings_still_need_a_person(text):
+    assert policy.needs_human(rv(text)) is not None
