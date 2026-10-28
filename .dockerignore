@@ -1,0 +1,13 @@
+.git
+.venv
+tests
+evals
+spike
+bench
+data
+__pycache__
+*.py[cod]
+.env
+.env.*
+**/.env
+**/.env.*

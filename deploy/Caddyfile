@@ -1,0 +1,19 @@
+{$SITE_ADDRESS} {
+    # Optional password protection. Generate a hash with:
+    # docker compose exec caddy caddy hash-password
+    # Then uncomment this block and replace HASH_FROM_COMMAND (never store the real password here).
+    # basic_auth {
+    #     demo HASH_FROM_COMMAND
+    # }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        -Server
+    }
+
+    reverse_proxy app:8000
+}
