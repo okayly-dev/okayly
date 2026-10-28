@@ -163,6 +163,8 @@ textarea.inp{resize:vertical;min-height:110px;line-height:1.5;font:inherit}
 .pick[aria-pressed="true"]::after{content:"\2713";position:absolute;top:16px;right:16px;width:24px;height:24px;border-radius:50%;background:var(--primary);color:#fff;font-size:14px;font-weight:800;display:grid;place-items:center;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .pick>span:first-child{display:block;border-radius:8px;overflow:hidden;border:1px solid var(--line-2);line-height:0}
 .pick svg{width:100%;height:auto;display:block}
+.pick img{width:100%;aspect-ratio:300/180;object-fit:cover;display:block}
+.pick[disabled]{opacity:.65;cursor:not-allowed}.pick[disabled]:hover{border-color:var(--line);box-shadow:none}
 .pick b{font-size:16px;padding:0 2px}
 .res{font-size:13.5px;font-weight:700;padding:0 2px 2px}
 .res.ok{color:var(--good-ink)} .res.warn{color:var(--warn-ink)}
@@ -414,7 +416,7 @@ async function loadLive(){
   const flags={};let list=await api('GET','/reviews');
   await Promise.all(list.filter(it=>!it.review.reply&&!it.proposal).map(async it=>{const r=await api('POST','/reviews/'+it.review.id+'/propose');if(r.status==='needs_human')flags[it.review.id]=r.reason}));
   list=await api('GET','/reviews');
-  const prev=S.acts.ad;REVIEWS.length=0;S.rev={};S.acts={ad:prev};
+  REVIEWS.length=0;S.rev={};S.acts={};
   const withP=list.filter(x=>x.proposal);
   const order=[...withP].sort((a,b)=>(b.proposal.priority==='personal_touch')-(a.proposal.priority==='personal_touch'));
   const keyOf={};order.forEach((x,i)=>{keyOf[x.review.id]='rv'+(i+1)});
@@ -423,12 +425,54 @@ async function loadLive(){
     if(p){r.why=p.priority==='personal_touch'?WHY_PERSONAL:null;if(p.first_draft){r.blocked=p.first_draft.reply;r.issues=p.first_draft.issues}S.acts[r.key]=toAct(p,r.key)}
     else if(!rv.reply)r.flag=(flags[rv.id]||'A person should handle this one.');
     REVIEWS.push(r)}
-  await syncEvents()}
+  await loadLiveAds();await syncEvents()}
 async function refreshLive(){const list=await api('GET','/reviews');
   for(const it of list){const rv=it.review;S.rev[rv.id]={text:rv.text,reply:rv.reply};const r=REVIEWS.find(x=>x.id===rv.id);if(r&&r.key&&it.proposal)S.acts[r.key]=toAct(it.proposal,r.key)}
-  await syncEvents()}
+  await loadLiveAds();await syncEvents()}
 async function syncEvents(){const ev=(await api('GET','/audit?limit=500')).reverse();
   S.events=ev.map(e=>({seq:e.seq,ts:e.ts,time:new Date(e.ts).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}).toLowerCase(),type:e.type,plain:e.plain,detail:e.detail||'',prev:e.prev.slice(0,8),hash:e.hash}))}
+
+/* ---- live ads: the Ads tab runs through the real ad endpoints ---- */
+const FMT_UI={wide:'wide',square:'square',tall:'story'},FMT_API={wide:'wide',square:'square',story:'tall'};
+const AD_CHECKS=[['no_people','No people or faces'],['no_before_after','No before-and-after photos'],['no_health_claim','No claims about a person\'s health'],['text_legible','Easy to read on a phone']];
+const toAdAct=p=>{const x=p.after;return {id:p.id,key:'ad',kind:'ad',attempt:p.attempt,before:p.before,after:{name:x.name,headline:x.headline,text:x.text,format:FMT_UI[x.format]||'wide',picture:x.image_sha,media:null,status:'paused'},state:p.state,reason:p.reason||'',hash:p.hash,handoff:false,live:true,cands:(p.extra&&p.extra.candidates)||[],first:p.first_draft}};
+async function loadLiveAds(){const r=await api('GET','/ads');const p=r.proposals[0];
+  S.acts.ad=p&&!S.adNew?toAdAct(p):null;S.ads=r.ads.map(x=>({name:x.name,status:x.status,picture:'-'}))}
+const adMsgText=e=>e.issues&&e.issues.length?e.issues.map(i=>i.message).join(' '):e.message;
+async function adCall(path,body){const a=S.acts.ad;try{S.acts.ad=toAdAct(await api('POST','/proposals/'+a.id+path,body));S.amsg=null;S.adMsg=''}catch(e){S.amsg=[adMsgText(e)]}
+  await syncEvents();render()}
+function pickGridLive(a){return `<div class="thumbs">${a.cands.map((c,i)=>{const n=AD_CHECKS.filter(k=>c.review&&c.review[k[0]]===true).length;
+  return `<button class="pick" data-act="pick" data-pick="${c.sha||''}" aria-pressed="${!!c.sha&&a.after.picture===c.sha}" ${c.passed?'':'disabled'}><span>${c.sha?`<img src="/api/images/${c.sha}" alt="Ad picture option ${i+1}">`:''}</span><b>Picture ${i+1}</b><span class="res ${c.passed?'ok':'warn'}">${c.passed?'&#10003; '+n+' of 4 checks passed':'&#9888; Not usable: '+esc(c.issues.join(' '))}</span></button>`}).join('')}</div>`}
+function adWordsLive(a){const iss=S.amsg||[];
+  if(S.adEditing)return `<div class="fld"><label for="ahead">Headline (up to ${40} characters)</label><input class="inp" id="ahead" maxlength="40" value="${esc(a.after.headline)}"></div><div class="fld"><label for="atext">Ad text (up to ${125} characters)</label><textarea class="inp" id="atext" rows="3" maxlength="125">${esc(a.after.text)}</textarea></div>${iss.length?`<ul class="badlist" role="alert">${iss.map(x=>`<li>&#9888; ${esc(x)}</li>`).join('')}</ul>`:''}<div class="btns" style="margin-top:12px"><button class="btn" data-act="ad-save">Save my wording</button><button class="btn out" data-act="ad-cancel">Cancel</button></div><p class="fine">We check your wording again before it is saved.</p>`;
+  return `<div class="ba two"><div class="b n"><span>Headline</span>${esc(a.after.headline)}</div><div class="b n"><span>Ad text</span>${esc(a.after.text)}</div></div><p style="margin:-2px 0 14px"><button class="linkbtn" data-act="ad-edit">Change the wording</button></p>${S.adMsg&&!S.adEditing?`<p class="small" role="alert" style="color:var(--bad-ink)">${esc(S.adMsg)}</p>`:''}`}
+function adFirstLive(a){return a.first?`<div class="callout info" style="margin-bottom:14px"><b>Our ad rules stopped Muse's first draft</b>It read: "${esc(a.first.headline)}. ${esc(a.first.text)}" ${(a.first.issues||[]).map(esc).join(' ')} Muse rewrote it. The version below passed.</div>`:''}
+function adStateLive(a){const st=a.state;
+  if(st==='APPROVED'||st==='EXECUTING'||st==='EXECUTED')return progress(a);
+  if(st==='VERIFIED')return `<div class="callout good"><b>&#10003; Saved as a paused draft, and we checked</b>It is in your ad draft list. It is not running and no money is being spent.</div><div class="studio" style="margin-top:18px"><div>${phone(a)}</div><div><p class="small muted">Shape: ${SHAPES[a.after.format]}.</p><p class="fine">Switching it on is a separate step with its own OK. It is not part of this demo.</p><div class="btns" style="margin-top:14px"><button class="btn out" data-act="repropose" data-kind="ad">Draft another ad</button></div></div></div>`;
+  if(st==='FAILED')return `<div class="callout bad"><b>We stopped. Nothing was saved.</b>${a.reason==='precondition_changed'?'An ad with that name already exists, so saving would have replaced someone else\'s work.':'What was about to be saved no longer matched what you approved, so we saved nothing.'}</div><div class="btns" style="margin-top:14px"><button class="btn" data-act="repropose" data-kind="ad">Draft it again</button></div>`;
+  return `<div class="callout info"><b>${st==='REJECTED'?'You said not now':'This OK ran out'}</b>${esc((a.reason||'').replace('Reason: ',''))} Nothing was saved.</div><div class="btns" style="margin-top:14px"><button class="btn out" data-act="repropose" data-kind="ad">Draft it again</button></div>`}
+function adLabelLive(st){return st==='PROPOSED'?['s-ready','Ready for your OK']:st==='VERIFIED'?['s-done','Saved as a paused draft']:st==='REJECTED'||st==='EXPIRED'?['s-idle','Not now']:st==='FAILED'?['s-stop','Stopped, needs another look']:['s-ready','Being saved']}
+function adStartLive(){const busy=S.adBusy;
+  return `<section class="card"><div class="card-h"><div><span class="kind">New ad</span><h2>Draft an ad with Muse</h2></div></div>${busy
+    ?`<div class="prog" aria-live="polite"><div class="fin"><b>&#10003;</b>Reading your practice details and the ad rules</div><div class="on"><b>2</b>Writing the ad and making 3 pictures with Muse...</div><div><b>3</b>Checking the words and each picture against the ad rules</div></div><p class="fine">This can take up to a minute.</p>`
+    :`<div class="fld"><label for="adname">Name for this ad</label><input class="inp" id="adname" maxlength="80" value="${esc(S.adName||'New patient welcome')}"></div><div class="btns" style="margin-top:12px"><button class="btn" data-act="ad-draft">Draft the ad</button></div><p class="fine">Muse writes the words and makes three pictures. Every line and picture is checked against the ad rules before you see it. Nothing is saved until you say yes, and it is saved paused.</p>`}
+    ${S.adMsg?`<p class="small" role="alert" style="margin-top:12px;color:var(--bad-ink)">${esc(S.adMsg)}</p>`:''}</section>`}
+function adCardLive(){const a=S.acts.ad;if(!a)return '';const st=a.state;let body;
+  if(st==='PROPOSED')body=`${adFirstLive(a)}${adWordsLive(a)}${pickGridLive(a)}<p class="picknote">Muse Image made these pictures. We never use patient photos or before-and-after shots. <button class="linkbtn" data-act="tab" data-tab="ads">Change the shape in the Ads tab</button></p>${S.rejecting==='ad'?rejectBox('ad'):`<div class="btns"><button class="btn" data-act="approve" data-kind="ad">Yes, save this ad as a draft</button><button class="btn out" data-act="start-reject" data-kind="ad">Not now</button></div>`}<p class="fine">It is saved as a paused draft. Nothing runs and no money is spent. This OK expires in ${hours()} hours.</p>`;
+  else body=adStateLive(a);
+  return `<article class="card feature"><span class="kind">New ad</span><h2>${esc(a.after.headline)}</h2>${body}</article>`}
+function vAdsLive(){const a=S.acts.ad;if(!a)return adStartLive();const st=a.state,open=st==='PROPOSED',lab=adLabelLive(st);
+  const sel=a.cands.find(c=>c.sha===a.after.picture),rv=(sel&&sel.review)||{};
+  const checks=AD_CHECKS.map(k=>{const ok=rv[k[0]]===true;return `<li><span class="${ok?'ok':'warn'}">${ok?'&#10003;':'&#9888;'}</span><span>${k[1]}</span></li>`}).join('');
+  const studio=open?`<div class="studio"><div class="pv"><span class="pvlab">Ad preview</span>${phone(a)}<p class="fine" style="text-align:center">This is how it would look on Facebook or Instagram.</p></div>
+    <div>${adFirstLive(a)}<div class="ctl"><h3>1. Check the words</h3>${adWordsLive(a)}</div>
+     <div class="ctl"><h3>2. Pick a picture</h3><p class="lab">Made for you by Muse</p>${pickGridLive(a)}</div>
+     <div class="ctl"><h3>3. Choose the shape</h3><div class="chips seg">${Object.keys(SHAPES).map(k=>chip('shape',k,SHAPES[k],a.after.format===k)).join('')}</div></div>
+     <div class="ctl"><h3>Muse checked this picture</h3><ul class="checks">${checks}</ul>${rv.notes?`<p class="small muted">What Muse saw: ${esc(rv.notes)}</p>`:''}</div>
+     ${S.rejecting==='ad'?rejectBox('ad'):`<div class="btns"><button class="btn" data-act="approve" data-kind="ad">Yes, save this ad as a draft</button><button class="btn out" data-act="start-reject" data-kind="ad">Not now</button></div>`}
+     <p class="fine">Saved as a paused draft. Nothing runs and no money is spent. This OK expires in ${hours()} hours.</p></div></div>`:adStateLive(a);
+  return `<section class="card"><div class="card-h"><div><span class="kind">New ad</span><h2>${esc(a.after.headline)}</h2></div><span class="status ${lab[0]}">${lab[1]}</span></div>${studio}</section>`}
 
 function canon(a){const rep=a.kind==='reply';return JSON.stringify({env:'sample-sandbox',practice:PRACTICE,provider:rep?(a.after.platform==='Yelp'?'manual_handoff_yelp':'sandbox_google_profile'):'sandbox_ad_account',kind:a.kind,resource:rep?a.after.review:a.after.name,operation:rep?'post_review_reply':'create_paused_ad_draft',before:a.before,after:a.after,currency:'USD',impact:0,attempt:a.attempt})}
 function newAct(kind,attempt,before,opts){const o=opts||{};const a={id:'act_9c21',kind,attempt,before:{...before},after:{name:AD_AFTER.name,headline:AD_AFTER.headline,text:TONES[o.tone||'friendly'].text,tone:o.tone||'friendly',picture:o.picture||'A',media:o.media||null,format:o.format||'wide',status:'paused'},state:'PROPOSED',reason:''};a.hash=h53(canon(a));a.idem='idem_'+h53(a.hash+attempt,7).slice(0,10);return a}
@@ -508,7 +552,7 @@ function picSvg(k,shape){const H=shape==='square'?300:shape==='story'?533:180,dy
   const bg=k==='B'?'var(--surface-2)':'var(--info-bg)';
   return `<svg viewBox="0 0 300 ${H}" role="img" aria-label="Sample ad picture: ${PICS[k].name}"><rect width="300" height="${H}" fill="${bg}"/><g transform="translate(0,${dy})">${inner}</g></svg>`}
 function mediaHtml(a){const f=a.after.format,st=`aspect-ratio:${RATIO[f]}`;if(UP.kind==='video')return `<video class="m" style="${st}" src="${UP.url}" controls muted playsinline preload="metadata" aria-label="Your video"></video>`;return `<img class="m" style="${st}" src="${UP.url}" alt="Your picture">`}
-function phone(a){const f=a.after.format,sq=f==='square'||f==='story';return `<div class="phone${f==='story'?' story':''}" aria-label="Preview of the ad"><div class="hd"><span class="av">B</span><div><b>${PRACTICE}</b><span class="s">Sponsored</span></div></div><div class="pt">${esc(a.after.text)}</div><div class="pc">${a.after.picture==='U'&&UP?mediaHtml(a):picSvg(a.after.picture==='U'?'A':a.after.picture,f==='story'?'story':sq?'square':'wide')}</div><div class="ft"><div><span class="dom">brightwooddental.example</span><b>${esc(a.after.headline)}</b></div><span class="cta">Learn more</span></div></div>`}
+function phone(a){const f=a.after.format,sq=f==='square'||f==='story';return `<div class="phone${f==='story'?' story':''}" aria-label="Preview of the ad"><div class="hd"><span class="av">B</span><div><b>${PRACTICE}</b><span class="s">Sponsored</span></div></div><div class="pt">${esc(a.after.text)}</div><div class="pc">${a.live?(a.after.picture?`<img class="m" style="aspect-ratio:${RATIO[f]}" src="/api/images/${a.after.picture}" alt="Ad picture">`:''):a.after.picture==='U'&&UP?mediaHtml(a):picSvg(a.after.picture==='U'?'A':a.after.picture,f==='story'?'story':sq?'square':'wide')}</div><div class="ft"><div><span class="dom">brightwooddental.example</span><b>${esc(a.after.headline)}</b></div><span class="cta">Learn more</span></div></div>`}
 function techDetails(key){const k=S.acts[key].kind,rep=k==='reply';const rows=rep?[['Read the review','reviews.get_review','2 stars, Google, Oct 25'],['Read your practice details and voice','reviews.get_practice_facts','phone, parking, tone: warm and short'],['Read your last replies','reviews.get_past_replies','5 replies, used for tone only'],['Check the privacy rules','policy.check_reply','first draft stopped; rewrite passed'],['Write the reply','plan.propose_review_reply','created '+S.acts[key].id]]:
   [['Read what nearby practices posted','brief.get_competitor_changes','Springfield Smiles added an implant cost page'],['Read the ad rules','creative.get_brand_rules','no before-and-after, no health claims, no promised results'],['Make 3 pictures','creative.generate_image (muse-image-1.0)','3 images, $0.03'],['Check each picture','creative.review_image (Spark vision)','1: 4 of 4. 2: 3 of 4, text small on phones. 3: 4 of 4'],['Write the ad draft','plan.propose_ad_draft','created act_9c21, paused, no budget']];
   const inT=rep?6200:22400,cached=rep?3000:12000,out=rep?900:3400,img=rep?0:0.03,cost=(inT-cached)*1.25/1e6+cached*0.15/1e6+out*4.25/1e6+img;
@@ -556,7 +600,7 @@ function rvFeature(){if(!S.acts.rv1)return '';return `<article class="card featu
 
 const needsOk=a=>a.after.picture==='U'&&!(UP&&UP.ok);
 function pickGrid(a){return `<div class="picks" role="group" aria-label="Choose a picture">${['A','B','C'].map((k,i)=>`<button class="pick" data-act="pick" data-pick="${k}" aria-pressed="${a.after.picture===k}"><span>${picSvg(k,'wide')}</span><b>Option ${i+1}: ${PICS[k].name}</b><span class="res ${passN(k)===4?'ok':'warn'}">${passN(k)===4?'&#10003; ':'&#9888; '}${resText(k)}</span></button>`).join('')}</div>`}
-function adCard(){const a=S.acts.ad,st=a.state;let body='';
+function adCard(){if(LIVE)return adCardLive();const a=S.acts.ad,st=a.state;let body='';
   if(st==='PROPOSED'){body=`<p class="why">A nearby practice just published a page about implant costs (see News), so this ad answers the same questions: what it costs and what to expect. We made three picture options and checked each one against ad rules. Pick the one you like.</p>
    <div class="ba two"><div class="b n"><span>Headline</span>${esc(a.after.headline)}</div><div class="b n"><span>Ad text (${TONES[a.after.tone].label.toLowerCase()})</span>${esc(a.after.text)}</div></div>
    ${pickGrid(a)}
@@ -664,7 +708,12 @@ function ownCard(a,k){const word=k==='video'?'video':'picture';
   return `<label class="drop dropc"><input type="file" class="upin" accept="${k==='video'?'video/mp4,video/quicktime':'image/jpeg,image/png'}" aria-label="Add your own ${word}"><span class="ico" aria-hidden="true">+</span><b>Add a ${word}</b><span>${k==='video'?'MP4, up to 60 seconds':'JPG or PNG'}</span></label>`}
 function cleanRow(){if(!UP||UP.kind==='video')return '';return `<p class="small" style="margin-top:6px">Patients in your picture? <button class="linkbtn" data-act="up-clean" aria-expanded="${UPCLEAN}">Clean up picture</button> <em class="soon">Planned</em></p>${UPCLEAN?'<p class="small muted">Not in this demo. In the real app, Muse Image would redraw your picture without people and show it next to the original. For now, upload a picture without people.</p>':''}`}
 function fitNote(a){if(!UP)return '';const want=RVAL[a.after.format],have=UP.w/UP.h;if(Math.abs(have/want-1)<=.15)return '';return `<p class="small" style="margin:0 0 10px;color:var(--warn-ink);font-weight:600">&#9888; The edges will be cropped to fit the ${SHAPES[a.after.format].split(' ')[0].toLowerCase()} shape. Try another shape above.</p>`}
-function vAds(){const a=S.acts.ad,st=a.state;const open=st==='PROPOSED';
+const adFoot=()=>`<section class="card"><h2 style="margin-bottom:6px">Other ads</h2><div>
+   ${S.ideas.map(i=>`<div class="li"><div><b>${esc(i)}</b><span class="muted small">From the news</span></div><span class="status s-idle">Idea</span></div>`).join('')}
+   <div class="li"><div><b>Family dentistry: welcome new patients</b><span class="muted small">Next idea in line</span></div><span class="status s-idle">Idea</span></div>
+   ${S.ads.filter(p=>p.picture==='-').map(p=>`<div class="li"><div><b>${esc(p.name)}</b><span class="muted small">Saved earlier, not running</span></div><span class="status s-idle">Paused</span></div>`).join('')}</div></section>
+  <section class="card soft"><h3 style="margin-bottom:10px">How we make ads for you</h3><ul class="plain"><li>We write the words and make picture options. You pick.</li><li>Every picture and every line is checked against ad rules before you see it.</li><li>No patient photos, before-and-after shots, invented ratings or promised results.</li><li>Drafts are saved paused. Switching one on is its own OK, and you or your team set the budget.</li></ul></section>`;
+function vAds(){if(LIVE)return `<div><h1>Ads</h1><p class="lead">Draft an ad, check it, and choose. We never switch an ad on or spend money without your OK.</p></div>${vAdsLive()}${adFoot()}`;const a=S.acts.ad,st=a.state;const open=st==='PROPOSED';
   const label=st==='PROPOSED'?['s-ready','Ready for your OK']:st==='VERIFIED'?['s-done','Saved as a paused draft']:st==='REJECTED'?['s-idle','Not now']:st==='FAILED'?['s-stop','Stopped, needs another look']:['s-ready','Being saved'];
   const mine=a.after.picture==='U'&&UP;
   const checks=mine?CHECKS.map(c=>`<li><span class="warn">?</span><span>${c}: not checked yet</span></li>`).join(''):CHECKS.map((c,i)=>{const ok=PICS[a.after.picture].r[i];return `<li><span class="${ok?'ok':'warn'}">${ok?'&#10003;':'&#9888;'}</span><span>${c}${ok?'':': the text is small on a phone. You can still choose it, or pick another picture.'}</span></li>`}).join('');
@@ -683,11 +732,7 @@ function vAds(){const a=S.acts.ad,st=a.state;const open=st==='PROPOSED';
      <p class="fine">Saved as a paused draft. Nothing runs and no money is spent. This OK expires in ${hours()} hours.</p></div></div>`:adStateBody(a);
   return `<div><h1>Ads</h1><p class="lead">Shape an ad until it feels right. We write the words and make the pictures, and you choose. We never switch an ad on or spend money without your OK.</p></div>
   <section class="card"><div class="card-h"><div><span class="kind">New ad</span><h2>${esc(a.after.headline)}</h2></div><span class="status ${label[0]}">${label[1]}</span></div>${studio}${S.under?techDetails('ad'):''}</section>
-  <section class="card"><h2 style="margin-bottom:6px">Other ads</h2><div>
-   ${S.ideas.map(i=>`<div class="li"><div><b>${esc(i)}</b><span class="muted small">From the news</span></div><span class="status s-idle">Idea</span></div>`).join('')}
-   <div class="li"><div><b>Family dentistry: welcome new patients</b><span class="muted small">Next idea in line</span></div><span class="status s-idle">Idea</span></div>
-   ${S.ads.filter(p=>p.picture==='-').map(p=>`<div class="li"><div><b>${esc(p.name)}</b><span class="muted small">Saved earlier, not running</span></div><span class="status s-idle">Paused</span></div>`).join('')}</div></section>
-  <section class="card soft"><h3 style="margin-bottom:10px">How we make ads for you</h3><ul class="plain"><li>We write the words and make picture options. You pick.</li><li>Every picture and every line is checked against ad rules before you see it.</li><li>No patient photos, before-and-after shots, invented ratings or promised results.</li><li>Drafts are saved paused. Switching one on is its own OK, and you or your team set the budget.</li></ul></section>`}
+  ${adFoot()}`}
 
 function loadingCard(){return `<section class="card"><h2 style="margin-bottom:14px">Reading your reviews and writing replies...</h2><div class="prog"><div class="fin"><b>&#10003;</b>Reading your Google and Yelp reviews</div><div class="on"><b>2</b>Writing draft replies with Muse</div><div><b>3</b>Checking each reply against your privacy rules</div></div><p class="fine">Muse reads each review and your practice details, then a rule check runs before you see anything.</p></section>`}
 function render(){const n=todayList().length;
@@ -707,10 +752,10 @@ async function execute(kind){const a=S.acts[kind];if(a.state!=='APPROVED'||a.han
 function drift(kind){if(kind==='rv1'){S.rev.g1.text+=' (Edit: the wait was closer to an hour.)';addEvent('sandbox.changed','The reviewer edited their review (demo).','review text changed outside the orchestrator')}
   else{S.ads.push({name:AD_AFTER.name,status:'paused',picture:'B',headline:'Implant ad (teammate draft)',text:'',format:'wide'});addEvent('sandbox.changed','A teammate already saved an ad with that name (demo).','name collision')}}
 async function liveApprove(key){const a=S.acts[key];a.state='EXECUTING';render();
-  try{if(S.sim[key]){await api('POST','/demo/reviews/'+a.after.review+'/edit',{});S.sim[key]=false}
+  try{if(S.sim[key]){if(a.kind==='ad')await api('POST','/demo/ads/collide',{name:a.after.name});else await api('POST','/demo/reviews/'+a.after.review+'/edit',{});S.sim[key]=false}
     await api('POST','/proposals/'+a.id+'/approve',{hash:a.hash})}catch(e){S.apiErr=e.message}
   await refreshLive();render()}
-async function approve(kind){if(LIVE&&S.acts[kind].kind==='reply')return liveApprove(kind);const a=S.acts[kind];if(kind==='ad'&&a.after.picture==='U'&&!(UP&&UP.ok))return;setState(a,'APPROVED');
+async function approve(kind){if(LIVE&&S.acts[kind].live)return liveApprove(kind);const a=S.acts[kind];if(kind==='ad'&&a.after.picture==='U'&&!(UP&&UP.ok))return;setState(a,'APPROVED');
   if(a.kind==='reply'&&a.after.platform==='Yelp'){a.handoff=true;addEvent('action.approved','You approved the reply to the Yelp review. Yelp does not let apps post, so you paste it yourself.','bound to hash '+a.hash.slice(0,12)+'; manual handoff');addEvent('handoff.manual','We posted nothing on Yelp.','provider has no reply endpoint in this plan; no read-back possible');render();return}
   addEvent('action.approved',a.kind==='reply'?'You said yes to posting your reply to the Google review. Your OK expires in 24 hours.':'You said yes to saving the ad ('+TONES[a.after.tone].label.toLowerCase()+' wording, '+(a.after.picture==='U'?'your own '+(a.after.media?a.after.media.kind:'file'):'picture option '+(['A','B','C'].indexOf(a.after.picture)+1))+', '+SHAPES[a.after.format].toLowerCase()+' shape) as a paused draft. Your OK expires in 24 hours.','bound to hash '+a.hash.slice(0,12));
   render();await sleep(500);if(S.sim[kind]){drift(kind);S.sim[kind]=false}await execute(kind)}
@@ -751,16 +796,21 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
    case 'tab':S.tab=el.dataset.tab;if(S.tab==='news')S.news.sub='feed';S.rejecting=null;S.editing=null;S.rmsg=null;render();window.scrollTo(0,0);break;
    case 'under':S.under=!S.under;render();break;
    case 'analyze':analyze();break;
-   case 'pick':adEdit(a=>{a.after.picture=el.dataset.pick;a.after.media=a.after.picture==='U'?mediaOf():null});break;
+   case 'pick':if(LIVE&&S.acts.ad&&S.acts.ad.live){adCall('/picture',{sha:el.dataset.pick});break}adEdit(a=>{a.after.picture=el.dataset.pick;a.after.media=a.after.picture==='U'?mediaOf():null});break;
    case 'up-remove':removeUp();break;
    case 'up-clean':UPCLEAN=!UPCLEAN;render();break;
    case 'tone':adEdit(a=>{a.after.tone=val;a.after.text=TONES[val].text});break;
-   case 'shape':adEdit(a=>{a.after.format=val});break;
+   case 'shape':if(LIVE&&S.acts.ad&&S.acts.ad.live){adCall('/edit-ad',{format:FMT_API[val]});break}adEdit(a=>{a.after.format=val});break;
    case 'approve':approve(kind);break;
+   case 'ad-draft':{S.adName=(($('#adname')||{}).value||'').trim();S.adBusy=true;S.adMsg='';render();
+     api('POST','/ads/propose',{name:S.adName,format:'wide'}).then(r=>{if(r.id){S.acts.ad=toAdAct(r);S.adNew=false;S.adEditing=false;S.amsg=null}else S.adMsg=r.reason||'We could not draft an ad.'}).catch(e=>{S.adMsg=adMsgText(e)}).then(()=>loadLiveAds()).then(()=>syncEvents()).catch(()=>{}).then(()=>{S.adBusy=false;render()});break}
+   case 'ad-edit':S.adEditing=true;S.amsg=null;render();break;
+   case 'ad-cancel':S.adEditing=false;S.amsg=null;render();break;
+   case 'ad-save':{const h=(($('#ahead')||{}).value||'').trim(),t=(($('#atext')||{}).value||'').trim();S.adEditing=true;adCall('/edit-ad',{headline:h,text:t}).then(()=>{if(!S.amsg)S.adEditing=false;render()});break}
    case 'start-reject':S.rejecting=kind;render();break;
    case 'cancel-reject':S.rejecting=null;render();break;
-   case 'reject':{if(LIVE&&S.acts[kind].kind==='reply'){api('POST','/proposals/'+S.acts[kind].id+'/reject',{reason:el.dataset.why}).then(refreshLive).then(()=>{S.rejecting=null;render()});break}const a=S.acts[kind];setState(a,'REJECTED','Reason: '+el.dataset.why);addEvent('action.rejected','You said not now to '+(a.kind==='reply'?'the reply':'the ad draft')+'. '+el.dataset.why+'.','rejected by operator');S.rejecting=null;render();break}
-   case 'repropose':{if(LIVE&&S.acts[kind].kind==='reply'){api('POST','/reviews/'+S.acts[kind].after.review+'/propose').then(refreshLive).then(render);break}if(S.acts[kind].kind==='reply')S.acts[kind]=newReply(kind,S.acts[kind].attempt+1,S.acts[kind].after.reply);else{const k=S.acts.ad.after;if(S.ads.some(p=>p.name===AD_AFTER.name))AD_AFTER.name=AD_NAME0+' (v2)';S.acts.ad=newAct('ad',S.acts.ad.attempt+1,{exists:false},{picture:k.picture,media:k.media,tone:k.tone,format:k.format})}
+   case 'reject':{if(LIVE&&S.acts[kind].live){api('POST','/proposals/'+S.acts[kind].id+'/reject',{reason:el.dataset.why}).then(refreshLive).then(()=>{S.rejecting=null;render()});break}const a=S.acts[kind];setState(a,'REJECTED','Reason: '+el.dataset.why);addEvent('action.rejected','You said not now to '+(a.kind==='reply'?'the reply':'the ad draft')+'. '+el.dataset.why+'.','rejected by operator');S.rejecting=null;render();break}
+   case 'repropose':{if(LIVE&&kind==='ad'&&S.acts.ad&&S.acts.ad.live){const a=S.acts.ad;S.adName=a.after.name+(a.state==='FAILED'||a.state==='VERIFIED'?' v2':'');S.adNew=true;S.acts.ad=null;S.adMsg='';S.rejecting=null;render();break}if(LIVE&&S.acts[kind].kind==='reply'){api('POST','/reviews/'+S.acts[kind].after.review+'/propose').then(refreshLive).then(render);break}if(S.acts[kind].kind==='reply')S.acts[kind]=newReply(kind,S.acts[kind].attempt+1,S.acts[kind].after.reply);else{const k=S.acts.ad.after;if(S.ads.some(p=>p.name===AD_AFTER.name))AD_AFTER.name=AD_NAME0+' (v2)';S.acts.ad=newAct('ad',S.acts.ad.attempt+1,{exists:false},{picture:k.picture,media:k.media,tone:k.tone,format:k.format})}
       const a=S.acts[kind];addEvent('action.proposed','We looked again as things are now. Your OK is needed.',a.id+' attempt '+a.attempt+'; hash '+a.hash.slice(0,12));render();break}
    case 'rev-edit':S.editing=kind;S.rmsg=null;render();break;
    case 'rev-cancel':S.editing=null;S.rmsg=null;render();break;
