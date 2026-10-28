@@ -26,7 +26,13 @@ _PHONE = re.compile(r"\+?\(?\d{3}\)?[\s.‑-]?\d{3}[\s.‑-]?\d{4}")
 _URL = re.compile(r"(https?://|www\.)\S+", re.I)
 _ESCALATE = re.compile(
     r"\b(lawyer|attorney|sue|suing|lawsuit|legal action|malpractice|hipaa|billed twice|double.?billed|"
-    r"overcharg\w*|fraud|insurance claim|police|report you)\b",
+    r"overcharg\w*|fraud|insurance claim|police|report you|"
+    r"courts?|courthouse|small\s+claims|counsel|litigat\w*|"
+    r"legal\s+(?:steps|recourse|team|advice|proceedings)|attorneys?\s+general|"
+    r"(?:dental|licensing|state|medical)\s+board|board\s+of\s+dentistry|dental\s+examiners|regulators?|"
+    r"better\s+business\s+bureau|bbb|"
+    r"(?:filing|filed|file|files|lodging|lodged|lodge|submitting|submitted)\s+(?:an?\s+|my\s+|the\s+)?"
+    r"(?:formal\s+|official\s+)?complaints?)\b",
     re.I,
 )
 

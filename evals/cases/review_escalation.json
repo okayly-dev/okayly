@@ -12,5 +12,20 @@
   {"id":"escalate-011","group":"review_escalation","input":{"review":"The legal-size paperwork was easy to read."},"expected":{"outcome":"passes"}},
   {"id":"escalate-012","group":"review_escalation","input":{"review":"The police-themed sticker made my child smile."},"expected":{"outcome":"passes"},"known_gap":true,"note":"Benign use of 'police' triggers escalation."},
   {"id":"escalate-013","group":"review_escalation","input":{"review":"The insurance claim form was easy to find online."},"expected":{"outcome":"passes"},"known_gap":true,"note":"A neutral mention of an insurance claim triggers escalation."},
-  {"id":"escalate-014","group":"review_escalation","input":{"review":"I read a lawsuit article while I waited."},"expected":{"outcome":"passes"},"known_gap":true,"note":"An unrelated mention of a lawsuit triggers escalation."}
+  {"id":"escalate-014","group":"review_escalation","input":{"review":"I read a lawsuit article while I waited."},"expected":{"outcome":"passes"},"known_gap":true,"note":"An unrelated mention of a lawsuit triggers escalation."},
+  {"id":"escalate-015","group":"review_escalation","input":{"review":"We are going to court over this bill."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-016","group":"review_escalation","input":{"review":"I'm filing a complaint with the dental board."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-017","group":"review_escalation","input":{"review":"I have retained counsel."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-018","group":"review_escalation","input":{"review":"See you in court."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-019","group":"review_escalation","input":{"review":"I will take this to small claims."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-020","group":"review_escalation","input":{"review":"I am taking this to court."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-021","group":"review_escalation","input":{"review":"I sent a complaint to the state dental board."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-022","group":"review_escalation","input":{"review":"I will write to the licensing board."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-023","group":"review_escalation","input":{"review":"I am contacting the board of dentistry."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-024","group":"review_escalation","input":{"review":"I am contacting the attorney general."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-025","group":"review_escalation","input":{"review":"I will file a Better Business Bureau complaint."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-026","group":"review_escalation","input":{"review":"My counsel will be in touch."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-027","group":"review_escalation","input":{"review":"I have spoken with legal counsel."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-028","group":"review_escalation","input":{"review":"I retained an attorney yesterday."},"expected":{"outcome":"needs_human"}},
+  {"id":"escalate-029","group":"review_escalation","input":{"review":"I am reporting this office to the state regulator."},"expected":{"outcome":"needs_human"}}
 ]
