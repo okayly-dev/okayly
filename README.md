@@ -10,7 +10,7 @@ Status: work in progress. The demo uses a fictional practice and sample reviews.
 
 ## Muse features used
 
-- Muse Spark: tool calling, strict structured output, web search, image review
+- Muse Spark: tool calling, strict structured output, picture review (vision)
 - Muse Image: ad pictures
 
 ## Layout
