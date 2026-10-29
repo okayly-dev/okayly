@@ -1,3 +1,4 @@
+from app.agents.tools import AD_TOOLS, run_tool
 import json
 
 import pytest
@@ -55,10 +56,10 @@ def test_ad_studio_runs_the_tool_loop():
 
 def test_ad_studio_tools_reject_bad_arguments_and_have_no_write_tool():
     s = MuseAdStudio(None, _Ctx())
-    assert "error" in s._run_tool("ads.get_practice_facts", "not json")
-    assert "error" in s._run_tool("ads.get_practice_facts", '{"x":1}')
-    assert "error" in s._run_tool("ads.create_ad", "{}")
-    assert "rules" in s._run_tool("ads.get_ad_rules", "{}")
+    assert "error" in run_tool(AD_TOOLS, _Ctx(), "ads.get_practice_facts", "not json")
+    assert "error" in run_tool(AD_TOOLS, _Ctx(), "ads.get_practice_facts", '{"x":1}')
+    assert "error" in run_tool(AD_TOOLS, _Ctx(), "ads.create_ad", "{}")
+    assert "rules" in run_tool(AD_TOOLS, _Ctx(), "ads.get_ad_rules", "{}")
 
 
 def test_picture_check_is_translated_by_code():
