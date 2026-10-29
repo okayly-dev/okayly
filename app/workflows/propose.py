@@ -16,7 +16,16 @@ from ..verification import policy
 AD_NAME_MAX = 60
 
 
-def create(rt, *, kind, resource, provider, before, after, handoff, priority, first_blocked, extra, plain, detail, audits=()) -> dict:
+def tools_entry(tools_used: list[dict]) -> tuple[str, str]:
+    """Plain words and detail for the audit entry that lists the read tools Muse called. Names and sizes only."""
+    count = len(tools_used)
+    plain = f"Before writing, Muse looked up {count} thing{'' if count == 1 else 's'} (read-only)."
+    detail = "; ".join(f"{t['tool']} {t['chars']} chars" + (" (error)" if t["error"] else "") for t in tools_used)
+    return plain, detail
+
+
+def create(rt, *, kind, resource, provider, before, after, handoff, priority, first_blocked, extra, plain, detail, audits=(),
+           tools_used=()) -> dict:
     store = rt.store
     attempt = 1 + store.one("SELECT COALESCE(MAX(attempt),0) m FROM proposals WHERE review_id=? AND kind=?", (resource, kind))["m"]
     h = content_hash(kind, provider, resource, before, after, attempt)
@@ -31,6 +40,8 @@ def create(rt, *, kind, resource, provider, before, after, handoff, priority, fi
              json.dumps(first_blocked) if first_blocked else None, now, now + rt.ttl,
              json.dumps(extra) if extra else None))
         rt.audit.append("proposal.created", plain, f"hash {h[:12]}; attempt {attempt}; first draft blocked: {bool(first_blocked)}" + detail, pid)
+        if tools_used:
+            rt.audit.append("draft.tools_used", *tools_entry(tools_used), pid)
         for a in audits:
             rt.audit.append(*a, pid)
     return proposals.view(proposals.row(store, pid))
@@ -78,7 +89,7 @@ def propose_reply(rt, review_id: str) -> dict:
         rt, kind="reply", resource=review_id, provider=rt.reader.provider_name(rv.platform),
         before={"text": rv.text, "reply": None}, after={"review": review_id, "platform": rv.platform, "reply": d.reply},
         handoff=0, priority="personal_touch" if rv.stars <= 2 else "normal", first_blocked=first_blocked, extra=None,
-        plain=f"We drafted a reply to a {rv.stars}-star {rv.platform} review.", detail="")
+        plain=f"We drafted a reply to a {rv.stars}-star {rv.platform} review.", detail="", tools_used=d.tools_used)
 
 
 def propose_ad(rt, name: str, fmt: str = "wide") -> dict:
@@ -127,7 +138,7 @@ def propose_ad(rt, name: str, fmt: str = "wide") -> dict:
             after={"name": name, "headline": d.headline, "text": d.text, "image_sha": passing[0]["sha"], "format": fmt, "status": "paused"},
             handoff=0, priority="normal", first_blocked=first_blocked, extra={"candidates": cands},
             plain=f"We drafted an ad called {name}. It will be saved paused, with no budget.",
-            detail=f"; {len(passing)} of {len(pictures)} pictures passed", audits=audits)
+            detail=f"; {len(passing)} of {len(pictures)} pictures passed", audits=audits, tools_used=d.tools_used)
 
 
 def make_pictures(rt, prompts: list[str]) -> list[dict]:
