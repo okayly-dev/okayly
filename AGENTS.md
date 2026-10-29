@@ -11,14 +11,14 @@ Code is in layers. Imports go only downward: a layer may import itself and any l
 | # | Layer | Package | What it does |
 |---|---|---|---|
 | 1 | core | `app/core/` | `domain` (the seven states and allowed moves), `errors`, `canonical` (canonical JSON, SHA-256), `payload` (the exact content of a change and its hash), `audit` (hash-chained, append-only log), `store` (SQLite, nested transactions), `proposals` (read and move proposal rows), `messages` (plain-language wording) |
-| 2 | providers | `app/providers/` | `read.py`: `SandboxReader`, the read-only view (read and list reviews and ads). `sandbox.py`: the write side (Google writable, Yelp a manual hand-off, the sandbox ad account with no activate method and no budget column). `seed.py`: sample-data loaders |
-| 3 | verification | `app/verification/` | `policy.py`: deterministic rules for replies, the "needs a person" rule, ad wording, the picture gate. `readback.py`: pure comparisons (approved content equals stored content, preconditions, read-back). Pure; never imports agents |
-| 4 | agents | `app/agents/` | The Muse client (`client.py`), the capped tool loop (`loop.py`), the reply drafter (`reviews.py`), the ad studio (`ads.py`), their fixture versions for tests, and `context.py`, the read-only context Muse reads through. Agents get no provider write side and never import providers or executors |
-| 5 | workflows | `app/workflows/` | `propose`, `edit`, `reject`, `queries`, `demo`, and `approval_gate` (the only place an `ApprovedAction` is made). `runtime.py` holds shared state: a read-only provider view, never a write handle |
+| 2 | providers | `app/providers/` | `read.py`: `SandboxReader`, the read-only view (read and list reviews and ads). `sandbox.py`: the write side (Google writable, Yelp a manual hand-off, the sandbox ad account with no activate method and no budget column). `seed.py`: sample-data loaders; `feeds.py` reads public News feeds. |
+| 3 | verification | `app/verification/` | `policy.py`: deterministic rules for replies, the "needs a person" rule, ad wording, the picture gate. `readback.py`: pure comparisons (approved content equals stored content, preconditions, read-back). Pure; never imports agents; `news.py` checks News items and summaries. |
+| 4 | agents | `app/agents/` | The Muse client (`client.py`), the capped tool loop (`loop.py`), the reply drafter (`reviews.py`), the ad studio (`ads.py`), their fixture versions for tests, and `context.py`, the read-only context Muse reads through. Agents get no provider write side and never import providers or executors; `news.py` summarises News, `tools/` holds each read tool and the shared router, `prompts/` holds system instructions. |
+| 5 | workflows | `app/workflows/` | `propose`, `edit`, `reject`, `queries`, `demo`, and `approval_gate` (the only place an `ApprovedAction` is made). `runtime.py` holds shared state: a read-only provider view, never a write handle; `news.py` runs the News check. |
 | 6 | executors | `app/executors/` | `executor.py`: the only code that holds a provider write handle. Takes an `ApprovedAction`, recomputes the content hash, re-reads the world, writes, reads back |
 | 7 | api | `app/api.py`, `app/main.py`, `app/wiring.py`, `app/service.py` | FastAPI endpoints, static files, assembly from settings. `service.py` is a thin `Orchestrator` facade that only delegates to workflows and the executor |
 
-Other paths: `app/fixtures/sample.json` (fictional practice, reviews and canned drafts), `web/index.html` (the interface; single file, generated; do not hand-edit), `spike/` (first Muse API tests and `RESULTS.md`).
+Other paths: `app/fixtures/sample.json` (fictional practice, reviews and canned drafts), `app/fixtures/news_sources.json` (approved feeds), `app/fixtures/news_sample.json` (sample News), `app/agents/tools/` (one file per read tool, with a shared router), `app/agents/prompts/` (Markdown system instructions and their loader), `app/agents/fixture_image.py` (offline PNG maker), `web/index.html` (the interface; single file, generated; do not hand-edit), `spike/` (first Muse API tests and `RESULTS.md`).
 
 Extra import rules (each is a test): agents do not import providers or executors; verification does not import agents; workflows import executors only through the approval gate module; only `app/providers/` and `app/executors/` name `post_reply` or `create_paused_draft`.
 
@@ -33,7 +33,7 @@ RUN_LIVE=1 .venv/bin/python -m pytest -m live -s          # real Muse, costs cen
 DEMO_CONTROLS=1 .venv/bin/uvicorn app.main:app --port 8000   # canned drafts, no spend; open http://localhost:8000
 DRAFTER=muse DEMO_CONTROLS=1 .venv/bin/uvicorn app.main:app --port 8000   # real Muse; needs MODEL_API_KEY
 ```
-Settings come from the environment: `DRAFTER` (`fixture` default, or `muse`), `MODEL_API_KEY`, `DB_PATH` (default in-memory), `DEMO_CONTROLS=1` (demo-only endpoints: edit a review behind the app's back, tamper with the log, reset).
+Settings come from the environment: `DRAFTER` (`fixture` default, or `muse`), `MODEL_API_KEY`, `DB_PATH` (default in-memory), `DEMO_CONTROLS=1` (demo-only endpoints: edit a review behind the app's back, tamper with the log, reset). `DAILY_SPEND_CAP_USD` sets the daily model spend cap (default 2.00).
 
 ## Safety invariants (do not weaken; tests cover each)
 

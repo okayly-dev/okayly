@@ -1,6 +1,7 @@
 """Thin wrapper over the OpenAI SDK pointed at the Meta Model API (Responses API).
 The key is read from the environment by the caller and never logged. Every call's token
-usage is written to the usage table so cost is visible."""
+usage is written to the usage table so cost is visible. Temporary failures are retried,
+and every failure becomes a plain message."""
 import base64
 import os
 import time
@@ -76,50 +77,60 @@ class MuseClient:
     def respond(self, *, input, instructions=None, tools=None, text_format=None, previous_response_id=None,
                 purpose: str = "", max_output_tokens: int = 4000):
         self._check_budget()
-        kw = {"model": self.model, "input": input, "max_output_tokens": max_output_tokens}
+        request = self._build_request(input, instructions, tools, text_format,
+                                      previous_response_id, max_output_tokens)
+        response = self._call_with_retries(request, previous_response_id)
+        self._record(response, purpose)
+        return response
+
+    def _build_request(self, input, instructions, tools, text_format,
+                       previous_response_id, max_output_tokens):
+        request = {"model": self.model, "input": input, "max_output_tokens": max_output_tokens}
         if instructions:
-            kw["instructions"] = instructions
+            request["instructions"] = instructions
         if tools:
-            kw["tools"] = tools
-            kw["parallel_tool_calls"] = False  # one call per turn keeps the loop easy to audit
+            request["tools"] = tools
+            # One call per turn keeps the conversation easy to audit.
+            request["parallel_tool_calls"] = False
         if text_format:
-            kw["text"] = text_format
+            request["text"] = text_format
         if previous_response_id:
-            kw["previous_response_id"] = previous_response_id
+            request["previous_response_id"] = previous_response_id
+        return request
+
+    def _call_with_retries(self, request, previous_response_id):
+        # The final attempt has no delay because it must return or raise.
         for delay in (*RETRY_DELAYS, None):
             try:
-                r = self.client.responses.create(**kw)
-                break
-            except Exception as exc:
-                if delay is not None and previous_response_id and self._missing_reference(exc):
+                return self.client.responses.create(**request)
+            except Exception as error:
+                if delay is not None and previous_response_id and self._missing_reference(error):
                     self.sleep(delay)
                     continue
-                self._raise_plain(exc)
-        self._record(r, purpose)
-        return r
+                self._raise_plain(error)
 
-    def _record(self, r, purpose: str) -> None:
-        if self.store is None or getattr(r, "usage", None) is None:
+    def _record(self, response, purpose: str) -> None:
+        if self.store is None or getattr(response, "usage", None) is None:
             return
-        u = r.usage
-        cached = getattr(getattr(u, "input_tokens_details", None), "cached_tokens", 0) or 0
+        usage = response.usage
+        cached = getattr(getattr(usage, "input_tokens_details", None), "cached_tokens", 0) or 0
         self.store.run(
             "INSERT INTO usage (ts, model, purpose, input_tokens, cached_tokens, output_tokens, cost_usd) VALUES (?,?,?,?,?,?,?)",
-            (self.clock(), self.model, purpose, u.input_tokens, cached, u.output_tokens, cost_usd(u.input_tokens, cached, u.output_tokens)),
+            (self.clock(), self.model, purpose, usage.input_tokens, cached, usage.output_tokens, cost_usd(usage.input_tokens, cached, usage.output_tokens)),
         )
 
     def generate_image(self, prompt: str, purpose: str = "ad_picture") -> bytes:
         """One picture from Muse Image. The API returns base64, not a link."""
         self._check_budget()
         try:
-            r = self.client.images.generate(model=IMAGE_MODEL, prompt=prompt, n=1)
+            response = self.client.images.generate(model=IMAGE_MODEL, prompt=prompt, n=1)
         except Exception as exc:
             self._raise_plain(exc)
-        b64 = (r.data[0].b64_json if getattr(r, "data", None) else None)
-        if not b64:
+        encoded_image = (response.data[0].b64_json if getattr(response, "data", None) else None)
+        if not encoded_image:
             raise DraftError(MUSE_BAD_OUTPUT)
         if self.store is not None:
             self.store.run(
                 "INSERT INTO usage (ts, model, purpose, input_tokens, cached_tokens, output_tokens, cost_usd) VALUES (?,?,?,?,?,?,?)",
                 (self.clock(), IMAGE_MODEL, purpose, 0, 0, 0, IMAGE_PRICE))
-        return base64.b64decode(b64)
+        return base64.b64decode(encoded_image)

@@ -1,3 +1,4 @@
+from app.agents.tools import REVIEW_TOOLS, run_tool
 import pytest
 
 from app.core.domain import ReviewState
@@ -68,11 +69,11 @@ def test_drafter_runs_tool_loop_and_keeps_review_text_out_of_the_prompt():
 
 def test_drafter_rejects_bad_tool_arguments_without_crashing():
     t = MuseDrafter(None, _Ctx())
-    assert "error" in t._run_tool("reviews.get_review", "not json")
-    assert "error" in t._run_tool("reviews.get_review", '{"review_id":5}')
-    assert "error" in t._run_tool("reviews.get_past_replies", '{"limit":"many"}')
-    assert "error" in t._run_tool("exec.post_reply", '{"review_id":"g2"}')       # Muse has no write tool
-    assert t._run_tool("reviews.get_past_replies", '{"limit":99}')["replies"] == ["Thank you."]
+    assert "error" in run_tool(REVIEW_TOOLS, _Ctx(), "reviews.get_review", "not json")
+    assert "error" in run_tool(REVIEW_TOOLS, _Ctx(), "reviews.get_review", '{"review_id":5}')
+    assert "error" in run_tool(REVIEW_TOOLS, _Ctx(), "reviews.get_past_replies", '{"limit":"many"}')
+    assert "error" in run_tool(REVIEW_TOOLS, _Ctx(), "exec.post_reply", '{"review_id":"g2"}')       # Muse has no write tool
+    assert run_tool(REVIEW_TOOLS, _Ctx(), "reviews.get_past_replies", '{"limit":99}')["replies"] == ["Thank you."]
 
 
 def test_drafter_stops_a_runaway_tool_loop():
