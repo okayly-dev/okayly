@@ -19,7 +19,7 @@ def test_real_muse_reply_passes_the_checks_and_posts(orch, rid):
     p = orch.propose_reply(rid)
     assert p["state"] == "PROPOSED", p
     review = orch.providers["Google"].read_review(rid)
-    assert policy.check_reply(p["after"]["reply"], review, orch.facts) == []
+    assert policy.check_reply(p["after"]["reply"], review, orch.rt.facts) == []
     print(f"\n{rid}: first draft blocked={bool(p['first_draft'])}\n  {p['after']['reply']}")
     if review.platform == "Google":
         assert orch.approve(p["id"], p["hash"])["state"] == "VERIFIED"
@@ -40,7 +40,7 @@ def test_real_muse_ad_draft_with_pictures_checked_and_saved_paused(orch):
     p = orch.propose_ad("Live test ad")
     assert p["state"] == "PROPOSED", p
     a = p["after"]
-    assert policy.check_ad(a["headline"], a["text"], orch.facts) == []
+    assert policy.check_ad(a["headline"], a["text"], orch.rt.facts) == []
     cands = p["extra"]["candidates"]
     print(f"\nad: {a['headline']!r} / {a['text']!r}")
     for i, c in enumerate(cands, 1):
