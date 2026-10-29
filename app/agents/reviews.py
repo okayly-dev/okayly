@@ -33,6 +33,7 @@ class Draft:
     facts_used: list[str] = field(default_factory=list)
     escalate: bool = False
     escalate_reason: str = ""
+    tools_used: list[dict] = field(default_factory=list)   # which read tools Muse called (names and answer sizes only)
 
 
 def parse_draft(text: str) -> Draft:
@@ -60,8 +61,12 @@ class MuseDrafter:
         if feedback:
             prompt += (f"\n\nYour previous draft was blocked by our checks.\nPrevious draft: {feedback['reply']}\n"
                        f"Reasons: {' '.join(feedback['issues'])}\nWrite a new draft that fixes every reason.")
-        return run_tool_loop(self.muse, prompt=prompt, instructions=SYSTEM, tools=TOOLS, text_format=DRAFT_FORMAT,
-                             run_tool=lambda name, args: run_tool(REVIEW_TOOLS, self.ctx, name, args), parse=parse_draft, purpose="review_reply_draft")
+        tool_log = []
+        draft = run_tool_loop(self.muse, prompt=prompt, instructions=SYSTEM, tools=TOOLS, text_format=DRAFT_FORMAT,
+                              run_tool=lambda name, args: run_tool(REVIEW_TOOLS, self.ctx, name, args), parse=parse_draft,
+                              purpose="review_reply_draft", tool_log=tool_log)
+        draft.tools_used = tool_log
+        return draft
 
 
 class FixtureDrafter:

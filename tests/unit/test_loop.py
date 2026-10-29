@@ -61,3 +61,20 @@ def test_a_model_that_never_stops_calling_tools_ends_in_a_draft_error_not_an_end
     with pytest.raises(DraftError):
         go(muse)
     assert len(muse.calls) == MAX_ROUNDS
+
+
+def test_the_loop_notes_each_tool_call_with_the_size_of_its_answer():
+    muse = Script([reply([tool_call(1)], rid="r1"), reply([tool_call(2)], rid="r2"), reply([], text="final", rid="r3")])
+    log = []
+    run_tool_loop(muse, prompt="p", instructions="i", tools=[], text_format={}, run_tool=lambda n, a: {"ok": "abc"},
+                  parse=lambda t: t, purpose="test", tool_log=log)
+    assert log == [{"tool": "t", "chars": len('{"ok": "abc"}'), "error": False}] * 2
+
+
+def test_a_restarted_conversation_does_not_double_count_tool_calls():
+    muse = Script([reply([tool_call()], rid="r1"), MuseUnavailable("busy"),
+                   reply([tool_call()], rid="r2"), reply([], text="final", rid="r3")])
+    log = []
+    run_tool_loop(muse, prompt="p", instructions="i", tools=[], text_format={}, run_tool=lambda n, a: {"error": "no"},
+                  parse=lambda t: t, purpose="test", tool_log=log)
+    assert len(log) == 1 and log[0]["error"] is True

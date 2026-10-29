@@ -18,9 +18,23 @@ def load_args(raw: str | None) -> dict | None:
     return args if isinstance(args, dict) else None
 
 
+def answer_tool_calls(calls, run_tool, tool_log) -> list:
+    """Run each tool Muse asked for. The log keeps only the tool name and the size of the answer, never the answer."""
+    outputs = []
+    for call in calls:
+        answer = run_tool(call.name, call.arguments)
+        text = json.dumps(answer)
+        if tool_log is not None:
+            tool_log.append({"tool": str(call.name)[:60], "chars": len(text), "error": "error" in answer})
+        outputs.append({"type": "function_call_output", "call_id": call.call_id, "output": text})
+    return outputs
+
+
 def run_tool_loop(muse, *, prompt: str, instructions: str, tools: list, text_format: dict, run_tool, parse, purpose: str,
-                  max_rounds: int = MAX_ROUNDS):
+                  max_rounds: int = MAX_ROUNDS, tool_log: list | None = None):
     for restart in range(RESTARTS + 1):
+        if tool_log is not None:
+            tool_log.clear()   # a restarted conversation starts its record again
         inp, prev = [{"role": "user", "content": prompt}], None
         try:
             for _ in range(max_rounds):
@@ -29,8 +43,7 @@ def run_tool_loop(muse, *, prompt: str, instructions: str, tools: list, text_for
                 calls = [o for o in r.output if o.type == "function_call"]
                 if not calls:
                     return parse(r.output_text)
-                inp = [{"type": "function_call_output", "call_id": c.call_id,
-                        "output": json.dumps(run_tool(c.name, c.arguments))} for c in calls]
+                inp = answer_tool_calls(calls, run_tool, tool_log)
                 prev = r.id
         except MuseUnavailable:
             if prev is None or restart == RESTARTS:

@@ -49,6 +49,7 @@ class AdDraft:
     text: str
     image_prompts: list[str] = field(default_factory=list)
     facts_used: list[str] = field(default_factory=list)
+    tools_used: list[dict] = field(default_factory=list)   # which read tools Muse called (names and answer sizes only)
 
 
 def parse_ad_draft(text: str) -> AdDraft:
@@ -89,8 +90,12 @@ class MuseAdStudio:
         if feedback:
             prompt += (f"\n\nYour previous ad was blocked by our checks.\nHeadline: {feedback['headline']}\nText: {feedback['text']}\n"
                        f"Reasons: {' '.join(feedback['issues'])}\nWrite a new ad that fixes every reason.")
-        return run_tool_loop(self.muse, prompt=prompt, instructions=SYSTEM, tools=TOOLS, text_format=AD_FORMAT,
-                             run_tool=lambda name, args: run_tool(AD_TOOLS, self.ctx, name, args), parse=parse_ad_draft, purpose="ad_draft")
+        tool_log = []
+        draft = run_tool_loop(self.muse, prompt=prompt, instructions=SYSTEM, tools=TOOLS, text_format=AD_FORMAT,
+                              run_tool=lambda name, args: run_tool(AD_TOOLS, self.ctx, name, args), parse=parse_ad_draft,
+                              purpose="ad_draft", tool_log=tool_log)
+        draft.tools_used = tool_log
+        return draft
 
     def image(self, prompt: str) -> bytes:
         return self.muse.generate_image(prompt)
