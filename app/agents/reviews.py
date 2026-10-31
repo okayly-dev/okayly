@@ -36,17 +36,34 @@ class Draft:
     tools_used: list[dict] = field(default_factory=list)   # which read tools Muse called (names and answer sizes only)
 
 
+DRAFT_KEYS = {"reply", "facts_used", "escalate", "escalate_reason"}
+
+
+def _is_list_of_strings(value) -> bool:
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _draft_matches_schema(data) -> bool:
+    """True only for an object with exactly the four keys, each of the right type."""
+    if not isinstance(data, dict) or set(data) != DRAFT_KEYS:
+        return False
+    if not isinstance(data["reply"], str):
+        return False
+    if not _is_list_of_strings(data["facts_used"]):
+        return False
+    if not isinstance(data["escalate"], bool):   # a real true/false only; 0 and 1 are refused
+        return False
+    return isinstance(data["escalate_reason"], str)
+
+
 def parse_draft(text: str) -> Draft:
     try:
-        draft_data = json.loads(text)
+        data = json.loads(text)
     except (TypeError, ValueError) as error:
         raise DraftError("Muse did not return JSON") from error
-    valid = (isinstance(draft_data, dict) and set(draft_data) == {"reply", "facts_used", "escalate", "escalate_reason"}
-          and isinstance(draft_data["reply"], str) and isinstance(draft_data["escalate"], bool) and isinstance(draft_data["escalate_reason"], str)
-          and isinstance(draft_data["facts_used"], list) and all(isinstance(fact, str) for fact in draft_data["facts_used"]))
-    if not valid:
+    if not _draft_matches_schema(data):
         raise DraftError("Muse returned JSON that does not match the schema")
-    return Draft(draft_data["reply"].strip(), draft_data["facts_used"], draft_data["escalate"], draft_data["escalate_reason"].strip())
+    return Draft(data["reply"].strip(), data["facts_used"], data["escalate"], data["escalate_reason"].strip())
 
 
 class MuseDrafter:

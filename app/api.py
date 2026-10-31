@@ -127,15 +127,7 @@ def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
 
     @app.get("/api/usage")
     def usage():
-        out = orch.usage()
-        now = orch.rt.clock()
-        start = now - now % 86400
-        row = orch.store.one("SELECT COALESCE(SUM(cost_usd), 0) usd FROM usage WHERE ts>=? AND ts<?",
-                             (start, start + 86400))
-        spent = round(float(row["usd"]), 6)
-        cap = orch.daily_spend_cap_usd
-        return {**out, "cap_usd": cap, "spent_today_usd": spent,
-                "remaining_usd": round(max(0.0, cap - spent), 6)}
+        return orch.usage_today()
 
     if demo:
         @app.post("/api/demo/reviews/{review_id}/edit")
