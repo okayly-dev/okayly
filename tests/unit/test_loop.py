@@ -1,6 +1,8 @@
+import json
+
 import pytest
 
-from app.agents.loop import MAX_ROUNDS, run_tool_loop
+from app.agents.loop import MAX_ROUNDS, REFUSED_NAME, run_tool_loop
 from app.core.errors import DraftError, MuseUnavailable
 
 
@@ -9,8 +11,8 @@ class Item:
         self.__dict__.update(kw)
 
 
-def tool_call(i=1):
-    return Item(type="function_call", name="t", arguments="{}", call_id=f"c{i}")
+def tool_call(i=1, name="t"):
+    return Item(type="function_call", name=name, arguments="{}", call_id=f"c{i}")
 
 
 class Script:
@@ -66,15 +68,29 @@ def test_a_model_that_never_stops_calling_tools_ends_in_a_draft_error_not_an_end
 def test_the_loop_notes_each_tool_call_with_the_size_of_its_answer():
     muse = Script([reply([tool_call(1)], rid="r1"), reply([tool_call(2)], rid="r2"), reply([], text="final", rid="r3")])
     log = []
-    run_tool_loop(muse, prompt="p", instructions="i", tools=[], text_format={}, run_tool=lambda n, a: {"ok": "abc"},
+    run_tool_loop(muse, prompt="p", instructions="i", tools=[{"name": "t"}], text_format={}, run_tool=lambda n, a: {"ok": "abc"},
                   parse=lambda t: t, purpose="test", tool_log=log)
-    assert log == [{"tool": "t", "chars": len('{"ok": "abc"}'), "error": False}] * 2
+    assert log == [{"tool": "t", "chars": len('{"ok": "abc"}'), "error": False, "refused": False}] * 2
 
 
 def test_a_restarted_conversation_does_not_double_count_tool_calls():
     muse = Script([reply([tool_call()], rid="r1"), MuseUnavailable("busy"),
                    reply([tool_call()], rid="r2"), reply([], text="final", rid="r3")])
     log = []
-    run_tool_loop(muse, prompt="p", instructions="i", tools=[], text_format={}, run_tool=lambda n, a: {"error": "no"},
+    run_tool_loop(muse, prompt="p", instructions="i", tools=[{"name": "t"}], text_format={}, run_tool=lambda n, a: {"error": "no"},
                   parse=lambda t: t, purpose="test", tool_log=log)
     assert len(log) == 1 and log[0]["error"] is True
+
+
+def test_a_tool_name_that_was_not_offered_is_never_copied_into_the_log():
+    """Muse chooses the name it sends, so a hostile review could make it spell out customer words."""
+    hostile = "Jane Doe had a root canal on Tuesday <script>alert(1)</script>\nsecond line " + "x" * 200
+    muse = Script([reply([tool_call(1, name=hostile)], rid="r1"), reply([tool_call(2, name="t ")], rid="r2"),
+                   reply([tool_call(3, name="t")], rid="r3"), reply([], text="final", rid="r4")])
+    log = []
+    run_tool_loop(muse, prompt="p", instructions="i", tools=[{"name": "t"}], text_format={},
+                  run_tool=lambda n, a: {"error": "unknown tool " + n}, parse=lambda t: t, purpose="test", tool_log=log)
+    assert [entry["refused"] for entry in log] == [True, True, False]
+    assert log[2]["tool"] == "t"
+    assert log[0]["tool"] == log[1]["tool"] == REFUSED_NAME
+    assert "Jane" not in json.dumps(log) and "script" not in json.dumps(log)
