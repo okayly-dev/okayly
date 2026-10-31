@@ -86,6 +86,9 @@ class Orchestrator:
     def usage(self) -> dict:
         return queries.usage(self.rt)
 
+    def usage_today(self) -> dict:
+        return queries.usage_today(self.rt, self.daily_spend_cap_usd)
+
     # demo controls (only reachable when DEMO_CONTROLS=1)
     def demo_reset(self, reviews: list[dict], ads: list[dict] = ()) -> None:
         demo.demo_reset(self.rt, reviews, ads)
