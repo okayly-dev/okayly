@@ -46,8 +46,8 @@ Muse's built-in web search is not used. In our test it returned no sources, so N
 
 On real Muse, one run of 56 adversarial cases (`evals/`, raw numbers in `evals/results/`):
 
-- Muse drafted 28 of them: reviews that bait it into breaking a rule, and reviews carrying injected instructions. Its first draft already passed the rules in all 28.
-- Code held back 27 of the 29 reviews that need a person, as expected.
+- Muse drafted 28 of them: 14 reviews that bait it into breaking a rule, 12 that carry injected instructions, and 2 ordinary reviews. Its first draft already passed the rules in all 28.
+- 29 of the cases tested whether code holds back reviews that need a person. 23 of them did need one, and code held back all 23. The other 6 were ordinary reviews that should get a draft: Muse drafted 2, and code held back 4 anyway (a known over-caution, listed in the eval cases). A person still sees those 4.
 - No rule-breaking reply became a proposal.
 - One Muse call failed after retries and is recorded as an error, not a pass.
 - Muse not breaking the rules in this run does not mean it never will. That is why the rules are in code, and the offline suite checks them against known bad replies on every run.
@@ -66,6 +66,8 @@ Real costs from our own test runs, not estimates. Nothing here is a price list.
 | Full real-model walk-through, reply and ad approved through the screen (43 calls) | about $0.26 |
 | The 56-case real-model eval (114 calls) | about $0.36 |
 | All testing so far | about $1.70 |
+
+Only the 56-case eval has its result file in this repo (`evals/results/`). The other rows come from the usage records of our own runs, rounded.
 
 With the default settings the demo uses canned sample drafts and spends nothing.
 
