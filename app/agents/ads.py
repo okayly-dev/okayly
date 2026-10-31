@@ -52,18 +52,50 @@ class AdDraft:
     tools_used: list[dict] = field(default_factory=list)   # which read tools Muse called (names and answer sizes only)
 
 
+AD_KEYS = {"headline", "text", "image_prompts", "facts_used"}
+PICTURE_FLAGS = ("has_people", "has_before_after", "has_health_claim", "text_hard_to_read")
+
+
+def _is_list_of_strings(value) -> bool:
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _are_usable_picture_prompts(value) -> bool:
+    """At least one prompt, and every prompt is text with something in it."""
+    if not isinstance(value, list) or not value:
+        return False
+    return all(isinstance(prompt, str) and prompt.strip() for prompt in value)
+
+
+def _ad_matches_schema(data) -> bool:
+    """True only for an object with exactly the four keys, each of the right type."""
+    if not isinstance(data, dict) or set(data) != AD_KEYS:
+        return False
+    if not isinstance(data["headline"], str) or not isinstance(data["text"], str):
+        return False
+    if not _are_usable_picture_prompts(data["image_prompts"]):
+        return False
+    return _is_list_of_strings(data["facts_used"])
+
+
 def parse_ad_draft(text: str) -> AdDraft:
     try:
-        draft_data = json.loads(text)
+        data = json.loads(text)
     except (TypeError, ValueError) as error:
         raise DraftError("Muse did not return JSON") from error
-    valid = (isinstance(draft_data, dict) and set(draft_data) == {"headline", "text", "image_prompts", "facts_used"}
-          and isinstance(draft_data["headline"], str) and isinstance(draft_data["text"], str)
-          and isinstance(draft_data["image_prompts"], list) and all(isinstance(item, str) and item.strip() for item in draft_data["image_prompts"])
-          and isinstance(draft_data["facts_used"], list) and all(isinstance(item, str) for item in draft_data["facts_used"]))
-    if not valid or not draft_data["image_prompts"]:
+    if not _ad_matches_schema(data):
         raise DraftError("Muse returned JSON that does not match the schema")
-    return AdDraft(draft_data["headline"].strip(), draft_data["text"].strip(), [prompt_text.strip() for prompt_text in draft_data["image_prompts"]][:MAX_PICTURES], draft_data["facts_used"])
+    prompts = [prompt.strip() for prompt in data["image_prompts"]][:MAX_PICTURES]
+    return AdDraft(data["headline"].strip(), data["text"].strip(), prompts, data["facts_used"])
+
+
+def _picture_check_matches_schema(data) -> bool:
+    """True only for an object with the four yes/no flags (real true/false) and a notes string."""
+    if not isinstance(data, dict) or set(data) != {*PICTURE_FLAGS, "notes"}:
+        return False
+    if not all(isinstance(data[flag], bool) for flag in PICTURE_FLAGS):   # 0 and 1 are refused
+        return False
+    return isinstance(data["notes"], str)
 
 
 def parse_picture_check(text: str) -> dict:
@@ -72,8 +104,7 @@ def parse_picture_check(text: str) -> dict:
         check = json.loads(text)
     except (TypeError, ValueError) as error:
         raise DraftError("Muse did not return JSON") from error
-    keys = ("has_people", "has_before_after", "has_health_claim", "text_hard_to_read")
-    if not (isinstance(check, dict) and set(check) == {*keys, "notes"} and all(isinstance(check[k], bool) for k in keys) and isinstance(check["notes"], str)):
+    if not _picture_check_matches_schema(check):
         raise DraftError("Muse returned JSON that does not match the schema")
     return {"no_people": not check["has_people"], "no_before_after": not check["has_before_after"],
             "no_health_claim": not check["has_health_claim"], "text_legible": not check["text_hard_to_read"], "notes": check["notes"].strip()}
