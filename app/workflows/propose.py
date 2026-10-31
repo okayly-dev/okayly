@@ -16,11 +16,29 @@ from ..verification import policy
 AD_NAME_MAX = 60
 
 
+def _things(count: int) -> str:
+    return f"{count} thing{'' if count == 1 else 's'}"
+
+
+def _flag(tool: dict) -> str:
+    if tool.get("refused"):
+        return " (refused)"
+    return " (error)" if tool["error"] else ""
+
+
 def tools_entry(tools_used: list[dict]) -> tuple[str, str]:
-    """Plain words and detail for the audit entry that lists the read tools Muse called. Names and sizes only."""
-    count = len(tools_used)
-    plain = f"Before writing, Muse looked up {count} thing{'' if count == 1 else 's'} (read-only)."
-    detail = "; ".join(f"{t['tool']} {t['chars']} chars" + (" (error)" if t["error"] else "") for t in tools_used)
+    """Plain words and detail for the audit entry that lists the read tools Muse called. Names and sizes only.
+    A request for a tool we did not offer is counted apart from the lookups, so the sentence is not misleading."""
+    refused = [t for t in tools_used if t.get("refused")]
+    lookups = [t for t in tools_used if not t.get("refused")]
+    failed = [t for t in lookups if t["error"]]
+    worked = len(lookups) - len(failed)
+    plain = f"Before writing, Muse looked up {_things(worked)} (read-only)." if worked else "Before writing, Muse looked nothing up."
+    if failed:
+        plain += f" {len(failed)} lookup{'' if len(failed) == 1 else 's'} returned an error."
+    if refused:
+        plain += f" It {'also ' if worked else ''}asked for {_things(len(refused))} it is not allowed to use; {'that was' if len(refused) == 1 else 'those were'} refused."
+    detail = "; ".join(f"{t['tool']} {t['chars']} chars{_flag(t)}" for t in tools_used)
     return plain, detail
 
 

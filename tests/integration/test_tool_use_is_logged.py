@@ -4,8 +4,10 @@ import json
 from types import SimpleNamespace as NS
 
 from app.agents.ads import AdDraft
+from app.agents.loop import REFUSED_NAME
 from app.agents.reviews import MuseDrafter
 from app.wiring import build
+from app.workflows.propose import tools_entry
 
 GOOD_REPLY = json.dumps({"reply": "Thank you for taking the time to share this.", "facts_used": [],
                          "escalate": False, "escalate_reason": ""})
@@ -39,8 +41,10 @@ def test_a_muse_draft_logs_the_tools_it_used_and_no_customer_text():
     (event,) = tool_events(o)
     assert event["proposal_id"] == p["id"]
     assert "reviews.get_review" in event["detail"] and "reviews.get_practice_facts" in event["detail"]
-    assert "exec.post_reply" in event["detail"] and "(error)" in event["detail"]     # the refused write attempt is on record
-    assert "3" in event["plain"]
+    assert "exec.post_reply" not in event["detail"]          # a name Muse was never offered is not copied into the record
+    assert REFUSED_NAME in event["detail"] and "(refused)" in event["detail"]
+    assert event["plain"] == ("Before writing, Muse looked up 2 things (read-only). "
+                              "It also asked for 1 thing it is not allowed to use; that was refused.")
     review_text = o.providers["Google"].read_review("g2").text
     assert not any(review_text in e["plain"] + e["detail"] for e in o.audit.events(1000))
     assert o.audit.verify()["ok"] is True
@@ -64,3 +68,35 @@ def test_an_ad_draft_logs_its_tools_too():
     p = o.propose_ad("Tool log ad")
     (event,) = tool_events(o)
     assert event["proposal_id"] == p["id"] and "ads.get_ad_rules 120 chars" in event["detail"]
+
+
+HOSTILE_NAMES = ["Jane Doe had a root canal on Tuesday", "<script>alert(1)</script>", "reviews.get_review\nfake line",
+                 "Reviews.Get_Review", "reviews.get_review ", "x" * 500, ""]
+
+
+def test_hostile_tool_names_never_reach_the_audit_log_or_the_page_text():
+    class HostileMuse(ScriptedMuse):
+        def __init__(self, names):
+            self.steps = [(name, "{}") for name in names] + [("reviews.get_review", json.dumps({"review_id": "g2"}))]
+    for names in (HOSTILE_NAMES[:3], HOSTILE_NAMES[3:6], HOSTILE_NAMES[6:]):      # the loop allows only a few rounds per draft
+        o = build(db_path=":memory:", drafter="fixture")
+        o.drafter = MuseDrafter(HostileMuse(names), o.drafter_context())
+        assert o.propose_reply("g2")["state"] == "PROPOSED"
+        (event,) = tool_events(o)
+        everything = " ".join(e["plain"] + " " + e["detail"] for e in o.audit.events(1000))
+        for name in names:
+            if name and "reviews.get_review" not in name:      # a near-copy of the real name is a prefix of the honest entry
+                assert name not in everything
+        assert event["detail"].count("reviews.get_review") == 1     # only the one real lookup is named
+        assert "<" not in event["detail"] and "\n" not in event["detail"] and "x" * 20 not in event["detail"]
+        assert event["plain"].startswith("Before writing, Muse looked up 1 thing (read-only).")
+        assert o.audit.verify()["ok"] is True
+
+
+def test_the_sentence_counts_failed_and_refused_requests_separately():
+    entry = {"tool": "reviews.get_review", "chars": 40, "error": True, "refused": False}
+    plain, detail = tools_entry([entry, {"tool": "reviews.get_practice_facts", "chars": 90, "error": False, "refused": False}])
+    assert plain == "Before writing, Muse looked up 1 thing (read-only). 1 lookup returned an error."
+    assert detail == "reviews.get_review 40 chars (error); reviews.get_practice_facts 90 chars"
+    plain, _ = tools_entry([{"tool": REFUSED_NAME, "chars": 20, "error": True, "refused": True}])
+    assert plain == "Before writing, Muse looked nothing up. It asked for 1 thing it is not allowed to use; that was refused."
