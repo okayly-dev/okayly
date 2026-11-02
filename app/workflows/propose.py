@@ -110,12 +110,17 @@ def propose_reply(rt, review_id: str) -> dict:
         plain=f"We drafted a reply to a {rv.stars}-star {rv.platform} review.", detail="", tools_used=d.tools_used)
 
 
-def propose_ad(rt, name: str, fmt: str = "wide") -> dict:
+def propose_ad(rt, name: str, fmt: str = "wide", headline_wish=None, picture_request=None, picture_count=None) -> dict:
     name = (name or "").strip()
     if not 1 <= len(name) <= AD_NAME_MAX or not re.fullmatch(r"[\w .,'&()\-]+", name):
         raise PolicyViolation([Issue("bad_name", f"Give the ad a short name (up to {AD_NAME_MAX} letters, numbers and spaces).")])
     if fmt not in policy.AD_FORMATS:
         raise PolicyViolation([Issue("bad_format", "Pick wide, square or tall.")])
+    # The person's own words are checked first, before Muse is called or anything is saved or spent.
+    brief, brief_issues = policy.read_ad_brief(headline_wish, picture_request, picture_count, rt.facts)
+    if brief_issues:
+        raise PolicyViolation(brief_issues)
+    asked = {"brief": brief} if brief.active else {}   # nothing typed: the drafter is called exactly as before
     live = proposals.live(rt.store, "ad", name)
     if live:
         return proposals.view(live)
@@ -123,18 +128,18 @@ def propose_ad(rt, name: str, fmt: str = "wide") -> dict:
         raise InvalidTransition("An ad with this name already exists.")
 
     first_blocked = None
-    d = rt.ad_studio.draft(name)
+    d = rt.ad_studio.draft(name, **asked)
     issues = policy.check_ad(d.headline, d.text, rt.facts)
     if issues:
         first_blocked = {"headline": d.headline, "text": d.text, "issues": [i.message for i in issues]}
         rt.audit.append("draft.blocked", "A first ad draft was stopped by the ad rules check.", "; ".join(i.code for i in issues), None)
-        d = rt.ad_studio.draft(name, feedback=first_blocked)
+        d = rt.ad_studio.draft(name, feedback=first_blocked, **asked)
         issues = policy.check_ad(d.headline, d.text, rt.facts)
         if issues:
             rt.audit.append("draft.blocked_twice", "The rewrite was also stopped, so no ad was proposed.", "; ".join(i.code for i in issues), None)
             return skip(rt, name, "We could not write an ad that passes the checks.", audit=False, what="ad")
 
-    pictures = make_pictures(rt, d.image_prompts)
+    pictures = make_pictures(rt, d.image_prompts[:brief.picture_count])   # the number of pictures is decided here, not by Muse
     passing = [p for p in pictures if p["passed"]]
     if not passing:
         rt.audit.append("ad.no_picture", "No picture passed the picture check, so no ad was proposed.",
@@ -147,16 +152,46 @@ def propose_ad(rt, name: str, fmt: str = "wide") -> dict:
                 rt.store.run("INSERT OR IGNORE INTO images (sha, mime, data, prompt, review_json, passed) VALUES (?,?,?,?,?,?)",
                              (p["sha"], p["mime"], p["data"], p["prompt"], json.dumps(p["review"]), int(p["passed"])))
         cands = [{k: p[k] for k in ("sha", "mime", "prompt", "review", "passed", "issues")} for p in pictures]
-        audits = [("image.checked", f"Picture {i + 1} passed the picture check." if p["passed"]
+        audits = brief_audits(brief, d.headline, len(pictures))
+        audits += [("image.checked", f"Picture {i + 1} passed the picture check." if p["passed"]
                    else f"Picture {i + 1} was stopped by the picture check: {' '.join(p['issues'])}",
                    (p["sha"] or "no picture")[:12] + "; " + (",".join(p["codes"]) or "all checks passed"))
                   for i, p in enumerate(pictures)]
         return create(
             rt, kind="ad", resource=name, provider=rt.reader.provider_name("Ads"), before={"exists": False},
             after={"name": name, "headline": d.headline, "text": d.text, "image_sha": passing[0]["sha"], "format": fmt, "status": "paused"},
-            handoff=0, priority="normal", first_blocked=first_blocked, extra={"candidates": cands},
+            handoff=0, priority="normal", first_blocked=first_blocked,
+            extra={"candidates": cands, **brief_extra(brief, d.headline, len(pictures))},
             plain=f"We drafted an ad called {name}. It will be saved paused, with no budget.",
             detail=f"; {len(passing)} of {len(pictures)} pictures passed", audits=audits, tools_used=d.tools_used)
+
+
+def _headline_used(brief, headline: str) -> bool:
+    return bool(brief.headline_wish) and headline.strip().casefold() == brief.headline_wish.casefold()
+
+
+def brief_extra(brief, headline: str, made: int) -> dict:
+    """What the page needs to say plainly what was asked and what came back. Nothing typed: nothing is added."""
+    if not brief.active:
+        return {}
+    return {"brief": {"picture_count": brief.picture_count, "pictures_made": made, "has_headline_wish": bool(brief.headline_wish),
+                      "headline_used": _headline_used(brief, headline)}}
+
+
+def brief_audits(brief, headline: str, made: int) -> list:
+    """One audit entry for the person's brief, written in the same transaction as proposal.created. The text was
+    length-capped and cleaned to one line before it got here; the page escapes it when it shows it."""
+    if not brief.active:
+        return []
+    n = brief.picture_count
+    given = [what for what, on in (("a headline idea", brief.headline_wish), ("a picture request", brief.picture_request),
+                                    ("a picture count", n != policy.AD_MAX_PICTURES)) if on]
+    plain = f"You gave Muse a brief for this ad ({', '.join(given)}). Pictures asked for: {n}. Pictures made: {made}."
+    if brief.headline_wish:
+        plain += " Your headline idea was used." if _headline_used(brief, headline) else " Your headline idea was not used; Muse wrote its own."
+    detail = (f'headline idea: "{brief.headline_wish}"; picture request: "{brief.picture_request}"; pictures asked: {n}; pictures made: {made}'
+              + (f"; picture count is {n}, not the usual {policy.AD_MAX_PICTURES}" if n != policy.AD_MAX_PICTURES else ""))
+    return [("ad.brief", plain, detail)]
 
 
 def make_pictures(rt, prompts: list[str]) -> list[dict]:

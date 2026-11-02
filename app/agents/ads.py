@@ -40,7 +40,7 @@ REVIEW_SCHEMA = {
     },
 }
 REVIEW_FORMAT = {"format": {"type": "json_schema", "name": "picture_check", "strict": True, "schema": REVIEW_SCHEMA}}
-MAX_PICTURES = 3
+MAX_PICTURES = policy.AD_MAX_PICTURES   # 3: the most pictures any ad gets; a brief can ask for fewer
 
 
 @dataclass
@@ -61,7 +61,7 @@ def _is_list_of_strings(value) -> bool:
 
 
 def _are_usable_picture_prompts(value) -> bool:
-    """At least one prompt, and every prompt is text with something in it."""
+    """At least one prompt, and every prompt is text with something in it. How many we keep is decided by parse_ad_draft."""
     if not isinstance(value, list) or not value:
         return False
     return all(isinstance(prompt, str) and prompt.strip() for prompt in value)
@@ -78,14 +78,15 @@ def _ad_matches_schema(data) -> bool:
     return _is_list_of_strings(data["facts_used"])
 
 
-def parse_ad_draft(text: str) -> AdDraft:
+def parse_ad_draft(text: str, count: int = MAX_PICTURES) -> AdDraft:
+    """count is how many pictures the person asked for (1 to MAX_PICTURES). Extra prompts are cut; fewer are kept as sent."""
     try:
         data = json.loads(text)
     except (TypeError, ValueError) as error:
         raise DraftError("Muse did not return JSON") from error
     if not _ad_matches_schema(data):
         raise DraftError("Muse returned JSON that does not match the schema")
-    prompts = [prompt.strip() for prompt in data["image_prompts"]][:MAX_PICTURES]
+    prompts = [prompt.strip() for prompt in data["image_prompts"]][:min(count, MAX_PICTURES)]
     return AdDraft(data["headline"].strip(), data["text"].strip(), prompts, data["facts_used"])
 
 
@@ -110,20 +111,37 @@ def parse_picture_check(text: str) -> dict:
             "no_health_claim": not check["has_health_claim"], "text_legible": not check["text_hard_to_read"], "notes": check["notes"].strip()}
 
 
+class _BriefContext:
+    """The read-only context plus this one request's brief, so a tool can answer with it. The brief is never put in a prompt."""
+
+    def __init__(self, context, brief):
+        self._context, self._brief = context, brief
+
+    def ad_brief(self):
+        return self._brief
+
+    def __getattr__(self, name):
+        return getattr(self._context, name)
+
+
 class MuseAdStudio:
     """context must offer: facts() -> dict, ad_rules() -> str."""
 
     def __init__(self, muse, context):
         self.muse, self.ctx = muse, context
 
-    def draft(self, name: str, feedback: dict | None = None) -> AdDraft:
+    def draft(self, name: str, feedback: dict | None = None, brief: policy.AdBrief | None = None) -> AdDraft:
         prompt = f"Write the ad for a draft named {json.dumps(name)}. Read the practice details and the ad rules with the tools first."
+        if brief is not None and brief.active:
+            prompt += " The person left a brief: read it with the ads.get_ad_brief tool too."   # the words themselves only come back as that tool's answer
+        context = _BriefContext(self.ctx, brief)
+        count = brief.picture_count if brief is not None else MAX_PICTURES
         if feedback:
             prompt += (f"\n\nYour previous ad was blocked by our checks.\nHeadline: {feedback['headline']}\nText: {feedback['text']}\n"
                        f"Reasons: {' '.join(feedback['issues'])}\nWrite a new ad that fixes every reason.")
         tool_log = []
         draft = run_tool_loop(self.muse, prompt=prompt, instructions=SYSTEM, tools=TOOLS, text_format=AD_FORMAT,
-                              run_tool=lambda name, args: run_tool(AD_TOOLS, self.ctx, name, args), parse=parse_ad_draft,
+                              run_tool=lambda name, args: run_tool(AD_TOOLS, context, name, args), parse=lambda text: parse_ad_draft(text, count),
                               purpose="ad_draft", tool_log=tool_log)
         draft.tools_used = tool_log
         return draft
@@ -151,9 +169,11 @@ class FixtureAdStudio:
         self.fx = fixture
         self._seen: dict[str, str] = {}
 
-    def draft(self, name: str, feedback: dict | None = None) -> AdDraft:
+    def draft(self, name: str, feedback: dict | None = None, brief: policy.AdBrief | None = None) -> AdDraft:
         item = self.fx["rewrite"] if feedback and "rewrite" in self.fx else self.fx["first"]
-        return AdDraft(item["headline"], item["text"], list(self.fx["image_prompts"]), item.get("facts_used", []))
+        count = brief.picture_count if brief is not None else MAX_PICTURES
+        headline = (brief.headline_wish if brief is not None else "") or item["headline"]   # a headline idea already passed the ad rules
+        return AdDraft(headline, item["text"], list(self.fx["image_prompts"])[:count], item.get("facts_used", []))
 
     def image(self, prompt: str) -> bytes:
         seed = hashlib.sha256(prompt.encode()).digest()

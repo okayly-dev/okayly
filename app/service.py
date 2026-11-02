@@ -49,8 +49,8 @@ class Orchestrator:
     def propose_reply(self, review_id: str) -> dict:
         return propose.propose_reply(self.rt, review_id)
 
-    def propose_ad(self, name: str, fmt: str = "wide") -> dict:
-        return propose.propose_ad(self.rt, name, fmt)
+    def propose_ad(self, name: str, fmt: str = "wide", headline_wish=None, picture_request=None, picture_count=None) -> dict:
+        return propose.propose_ad(self.rt, name, fmt, headline_wish, picture_request, picture_count)
 
     def edit_reply(self, pid: str, text: str) -> dict:
         return edit.edit_reply(self.rt, pid, text)

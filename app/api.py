@@ -6,6 +6,8 @@ from pathlib import Path
 from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from .core.errors import DraftError, OrchestratorError, PolicyViolation
@@ -24,6 +26,10 @@ class EditBody(BaseModel):
 class ProposeAdBody(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     format: str = Field(default="wide", max_length=10)
+    # Optional brief. Checked in code (verification.policy.read_ad_brief) so a bad value gets the app's plain error, not a framework one.
+    headline_wish: Any = None
+    picture_request: Any = None
+    picture_count: Any = None
 
 
 class EditAdBody(BaseModel):
@@ -82,7 +88,7 @@ def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
 
     @app.post("/api/ads/propose")
     def propose_ad(b: ProposeAdBody):
-        return orch.propose_ad(b.name, b.format)
+        return orch.propose_ad(b.name, b.format, b.headline_wish, b.picture_request, b.picture_count)
 
     @app.get("/api/images/{sha}")
     def image(sha: str):

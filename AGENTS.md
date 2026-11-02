@@ -37,12 +37,12 @@ Settings come from the environment: `DRAFTER` (`fixture` default, or `muse`), `M
 
 ## Safety invariants (do not weaken; tests cover each)
 
-1. **Muse has no write tool.** It can read through three read tools and return a structured draft. Posting is done by the executor after approval. Agents are handed a read-only context and never import the provider write side.
+1. **Muse has no write tool.** It can read through three read tools (the ad agent has three of its own, including `ads.get_ad_brief`) and return a structured draft. Posting is done by the executor after approval. Agents are handed a read-only context and never import the provider write side.
 2. **An approval is bound to a SHA-256 of the exact change.** A different hash is refused and audited. Editing a reply changes its hash.
 3. **The executor re-reads before writing.** If the review changed or already has a reply, it writes nothing (`precondition_changed`).
 4. **Verification is an independent read**, not the write response.
 5. **Rules are code, not prompts.** A reply that fails `policy.check_reply` cannot become a proposal and cannot be saved after an edit. A second blocked draft means no proposal.
-6. **Untrusted text stays out of the prompt.** Review text reaches Muse only as a tool result labelled untrusted. Tool arguments from Muse are validated in code.
+6. **Untrusted text stays out of the prompt.** Review text reaches Muse only as a tool result labelled untrusted. So does an ad brief (`headline_wish`, `picture_request`, `picture_count` on `POST /api/ads/propose`): it is read through `ads.get_ad_brief`, checked by `policy.read_ad_brief` before anything is drafted or spent, and the picture count is enforced in `workflows/propose.py`, not by Muse. Tool arguments from Muse are validated in code.
 7. **Reviews about legal action, billing disputes and similar get no draft** (`policy.needs_human`).
 8. **The audit log is written in the same transaction as each state change**, and `GET /api/audit/verify` recomputes the chain.
 9. **Yelp is never posted to.** An approved Yelp reply is a manual hand-off.

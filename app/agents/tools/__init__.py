@@ -2,11 +2,11 @@
 from ..loop import load_args
 from . import (
     reviews_get_review, reviews_get_practice_facts, reviews_get_past_replies,
-    ads_get_practice_facts, ads_get_ad_rules,
+    ads_get_practice_facts, ads_get_ad_rules, ads_get_ad_brief,
 )
 
 REVIEW_TOOLS = [reviews_get_review, reviews_get_practice_facts, reviews_get_past_replies]
-AD_TOOLS = [ads_get_practice_facts, ads_get_ad_rules]
+AD_TOOLS = [ads_get_practice_facts, ads_get_ad_rules, ads_get_ad_brief]
 
 
 def definitions(tools):
