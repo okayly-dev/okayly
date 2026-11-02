@@ -639,8 +639,8 @@ function vWeek(){const n=pending().length,easy=revPending().filter(k=>k!=='rv1')
     <label class="ck"><input type="checkbox" data-act="sim" data-kind="ad" ${S.sim.ad?'checked':''}><span>Someone saves an ad with the same name right after I say yes to the ad</span></label>
     <label class="ck"><input type="checkbox" data-act="quiet" ${S.quiet?'checked':''}><span>Pretend it is a quiet day (nothing new to report)</span></label>
     <div class="row" style="margin-top:14px"><button class="btn quiet sm" data-act="reset">Reset the demo</button></div></section>`:'';
-  return `<section><div class="tagrow"><span>${PRACTICE}</span><span class="tag">Sample data</span></div><h1>Good morning. Here is your week.</h1>
-   <p class="lead">How your reviews are doing, and what we suggest. Nothing is posted or saved until you say yes.</p></section>
+  return `<section><div class="tagrow"><span>${PRACTICE}</span><span class="tag">Demo practice: a made-up dental office</span></div><h1>Good morning! Let's see how your practice is doing.</h1>
+   <p class="lead">Your assistant has been keeping your reviews and marketing organized. Here is what needs your attention today. Nothing is posted or saved until you say yes.</p></section>
    ${updateCard()}${reviewsCard()}${checking}${presenter}
    <h2 style="margin-top:6px">${n?(n===1?'1 thing needs your OK':n+' things need your OK'):'Nothing is waiting for you'}</h2>
    <div class="stack">${rvFeature()}${adCard()}</div>
