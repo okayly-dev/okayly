@@ -14,7 +14,7 @@ Built with Meta's Muse models for the Meta Global AI Developer Hackathon (Build 
 |---|---|
 | **Reviews** | New reviews come in. Muse Spark drafts a reply from the review, the practice's facts and past replies. Code checks the reply for privacy and claims. A person edits or approves it. The executor posts it to a sandbox Google profile and reads it back. A Yelp reply stops as a hand-off, because we found no way for an app to post one. |
 | **Ads** | Muse Spark drafts the ad text, Muse Image draws the picture, and Muse Spark vision checks the picture. The person approves the exact text and picture. The ad is saved **paused** in a sandbox ad account. The code has no way to switch it on or set a budget. |
-| **News** | Code reads five approved public feeds (Google Ads blog, Google Maps blog, Google Search Central, Google blog, Search Engine Roundtable), keeps recent and on-topic items, and shows up to three. Muse writes a one-line summary. The link, date and source always come from the feed. |
+| **News** | Code reads three approved public feeds (Google Ads blog, Google Maps blog, Google Search Central), keeps recent and on-topic items, and shows up to three. Muse writes a one-line summary. The link, date and source always come from the feed. |
 | **Audit** | Every step goes into an append-only log where each entry carries the hash of the one before. One call checks that the chain is intact. |
 
 ## The part that matters: code decides, not the model
@@ -96,3 +96,5 @@ To run it on a server with Docker and HTTPS, see [`deploy/README.md`](deploy/REA
 - `evals/`: the adversarial cases and their runner. `bench/`: small real-model checks for reply wording and ads.
 - `spike/`: our first Muse API tests and what they showed ([`spike/RESULTS.md`](spike/RESULTS.md)).
 - `deploy/`: Docker and HTTPS files.
+
+Licensed under the GNU Affero General Public License v3.0 (see `LICENSE`).
