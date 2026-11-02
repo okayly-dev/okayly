@@ -12,7 +12,7 @@ Endpoint used: Chat Completions (`POST /v1/chat/completions`), model `muse-spark
 | Tools and structured output together | Works as two phases: the first turn returns the tool call; after the tool result the final answer was valid against the schema | 1.6 s + 2.2 s | about $0.002 + $0.003 |
 | Web search (`/v1/responses`, tool `{"type":"web_search"}`, `max_tool_calls: 2`) | Works. 2 searches ran and Muse named a dated Google policy change (Oct 22, 2026). Citation/URL fields were not inspected yet | 5.8 s | $0.009 plus search fees (about $0.005 for 2) |
 | Image review by Spark vision (image sent as base64 data URL, strict JSON schema) | Works. Correctly reported no people, no before-and-after, no health claim, and described the icons | 5.2 s | $0.008 |
-| Image generation (`/v1/images/generations`, `muse-image-1.0`) | Works. Returns base64 (`b64_json`), no URL. Sample `sample-image.png`: flat blue illustration, no people, no text | 7.5 s | $0.01 per image |
+| Image generation (`/v1/images/generations`, `muse-image-1.0`) | Works. Returns base64 (`b64_json`), no URL. Sample `sample-image.webp`: flat blue illustration, no people, no text | 7.5 s | $0.01 per image |
 
 ## What this means for the design
 

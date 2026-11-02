@@ -55,7 +55,7 @@ def test_refusal_before_writing_needs_its_audit_entry_to_move_to_failed():
     fail_audit(o, "execution.refused")
     with pytest.raises(RuntimeError):
         o.approve(p["id"], p["hash"])
-    assert state(o, p["id"]) != "FAILED" and not logged(o, "execution.refused")
+    assert state(o, p["id"]) == "EXECUTING" and not logged(o, "execution.refused")
 
 
 def test_executed_state_needs_its_audit_entry():
