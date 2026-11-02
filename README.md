@@ -13,7 +13,7 @@ Built with Meta's Muse models for the Meta Global AI Developer Hackathon (Build 
 | Screen | What happens |
 |---|---|
 | **Reviews** | New reviews come in. Muse Spark drafts a reply from the review, the practice's facts and past replies. Code checks the reply for privacy and claims. A person edits or approves it. The executor posts it to a sandbox Google profile and reads it back. A Yelp reply stops as a hand-off, because we found no way for an app to post one. |
-| **Ads** | Muse Spark drafts the ad text, Muse Image draws the picture, and Muse Spark vision checks the picture. The person approves the exact text and picture. The ad is saved **paused** in a sandbox ad account. The code has no way to switch it on or set a budget. |
+| **Ads** | Muse Spark drafts the ad text, Muse Image draws the picture, and Muse Spark vision checks the picture. The person approves the exact text and picture. The ad is saved **paused** in a sandbox ad account. The code has no way to switch it on or set a budget. The person can also give a headline idea, say what the pictures should show, and pick 1 to 3 pictures; code checks those words first and Muse reads them only through a labelled read tool. |
 | **News** | Code reads three approved public feeds (Google Ads blog, Google Maps blog, Google Search Central), keeps recent and on-topic items, and shows up to three. Muse writes a one-line summary. The link, date and source always come from the feed. |
 | **Audit** | Every step goes into an append-only log where each entry carries the hash of the one before. One call checks that the chain is intact. |
 

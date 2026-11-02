@@ -2,6 +2,7 @@
 a reply that breaks a rule cannot become a proposal, and cannot be saved after an edit."""
 import re
 import unicodedata
+from dataclasses import dataclass
 
 from ..core.domain import Issue, ReviewState
 
@@ -117,7 +118,12 @@ def check_ad(headline: str, text: str, facts: dict | None = None) -> list[Issue]
         out.append(Issue("headline_too_long", f"Keep the headline under {AD_HEADLINE_MAX} characters. Yours is {len(h)}."))
     if len(t) > AD_TEXT_MAX:
         out.append(Issue("text_too_long", f"Keep the text under {AD_TEXT_MAX} characters. Yours is {len(t)}."))
-    both = f"{h}\n{t}"
+    return out + ad_wording_issues(f"{h}\n{t}", facts)
+
+
+def ad_wording_issues(both: str, facts: dict | None = None) -> list[Issue]:
+    """The wording rules shared by a finished ad and a person's headline idea."""
+    out: list[Issue] = []
     if _BEFORE_AFTER.search(both):
         out.append(Issue("before_after", "Do not use before-and-after or transformation wording."))
     if _RESULTS.search(both):
@@ -170,3 +176,89 @@ def check_image(data: bytes, review: dict | None) -> list[Issue]:
         if review.get(key) is not True:
             out.append(Issue(key, msg))
     return out
+
+
+# ---------- the ad brief: what a person asks Muse for before it drafts ----------
+AD_MAX_PICTURES = 3
+PICTURE_REQUEST_MAX = 200
+
+
+@dataclass(frozen=True)
+class AdBrief:
+    """Three optional inputs. All of it is untrusted text: it reaches Muse only as a labelled tool answer."""
+    headline_wish: str = ""
+    picture_request: str = ""
+    picture_count: int = AD_MAX_PICTURES
+
+    @property
+    def active(self) -> bool:
+        """False when nothing was asked for, so the draft runs exactly as it did before the brief existed."""
+        return bool(self.headline_wish or self.picture_request or self.picture_count != AD_MAX_PICTURES)
+
+
+_NOT = r"(?:no|without|never|not)"
+_NEGATED = re.compile(   # "no people", "without faces or hands", "no people, no text": the person is ruling these out
+    rf"\b{_NOT}\b(?:\s+(?:any|a|an))?\s+[\w-]+(?:\s*,?\s*(?:(?:and|or|nor)\s+(?:{_NOT}\s+)?|{_NOT}\s+)[\w-]+)*", re.I)
+_PEOPLE = re.compile(
+    r"\b(?:people|persons?|humans?|men|man|women|woman|kids?|child|children|boys?|girls?|babies|baby|teens?|"
+    r"patients?|customers?|couples?|crowds?|families|family(?!\s+dent)|smiling|selfie)\b", re.I)
+_BODY = re.compile(
+    r"\b(?:faces?|heads?|smiles?|teeth|tooth|gums?|mouths?|lips?|tongues?|eyes?|hands?|fingers?|arms?)\b", re.I)
+_WRITING = re.compile(
+    r"\b(?:text|words?|writing|written|lettering|letters?|captions?|slogans?|logos?|signs?|signage|labels?|"
+    r"numbers?|calendars?|quotes?|saying|that says|reads)\b", re.I)
+_SIDE_BY_SIDE = re.compile(r"\bside[\s-]*by[\s-]*side\b|\bcompar\w+", re.I)
+_PICTURE_HEALTH = re.compile(r"\b(?:cavity|cavities|decay|disease|diagnos\w*|x-?rays?|medical|medicine)\b", re.I)
+
+
+def _plain_line(value: str) -> str:
+    """One line of printable text: control characters dropped, every run of whitespace becomes one space."""
+    kept = "".join(c for c in value if c.isspace() or unicodedata.category(c) not in ("Cc", "Cf"))
+    return " ".join(kept.split())
+
+
+def check_headline_wish(headline: str, facts: dict | None = None) -> list[Issue]:
+    """The ad rules, applied to the person's own headline idea before anything is drafted."""
+    out = ad_wording_issues(headline, facts)
+    if re.search(r"\bpatients?\b", headline, re.I) and not any(i.code == "patient_proof" for i in out):
+        out.append(Issue("patient_proof", "Do not talk about patients, reviews or testimonials in an ad."))
+    return [Issue(i.code, "Your headline idea: " + i.message) for i in out]
+
+
+def check_picture_request(request: str) -> list[Issue]:
+    """Clear cases only. The picture rules always win; Spark vision and check_image still judge every picture."""
+    wanted = _NEGATED.sub(" ", request)   # "no people, no text" is allowed: it asks for what the rules ask for
+    out: list[Issue] = []
+    if _PEOPLE.search(wanted):
+        out.append(Issue("picture_people", "Pictures cannot show people. Describe an object or a room instead."))
+    if _BODY.search(wanted):
+        out.append(Issue("picture_body", "Pictures cannot show faces, teeth, hands or other body parts. Describe an object or a room instead."))
+    if _WRITING.search(wanted):
+        out.append(Issue("picture_writing", "Pictures cannot contain any writing, words, numbers or signs. Describe the scene without text."))
+    if _BEFORE_AFTER.search(wanted) or _SIDE_BY_SIDE.search(wanted):
+        out.append(Issue("picture_before_after", "Pictures cannot show a before-and-after or a comparison. Describe one calm object or scene."))
+    if _HEALTH.search(wanted) or _PERSONAL_HEALTH.search(wanted) or _PICTURE_HEALTH.search(wanted):
+        out.append(Issue("picture_health", "Pictures cannot make health claims. Describe a plain dental object or a calm room instead."))
+    return out
+
+
+def read_ad_brief(headline_wish=None, picture_request=None, picture_count=None, facts: dict | None = None) -> tuple[AdBrief, list[Issue]]:
+    """Turn the three raw inputs into a brief, or into plain reasons to change them. Nothing here spends anything."""
+    if (headline_wish is not None and not isinstance(headline_wish, str)) or (picture_request is not None and not isinstance(picture_request, str)):
+        return AdBrief(), [Issue("brief_not_text", "The headline idea and the picture request must be plain text.")]
+    count = AD_MAX_PICTURES if picture_count is None else picture_count
+    if type(count) is not int or not 1 <= count <= AD_MAX_PICTURES:
+        return AdBrief(), [Issue("bad_picture_count", f"Pick 1, 2 or {AD_MAX_PICTURES} pictures.")]
+    headline, request = _plain_line(headline_wish or ""), _plain_line(picture_request or "")
+    out: list[Issue] = []
+    if len(headline) > AD_HEADLINE_MAX:
+        out.append(Issue("headline_idea_too_long", f"Keep your headline idea to {AD_HEADLINE_MAX} characters or fewer. Yours is {len(headline)}."))
+    if len(request) > PICTURE_REQUEST_MAX:
+        out.append(Issue("picture_request_too_long", f"Keep what the pictures should show to {PICTURE_REQUEST_MAX} characters or fewer. Yours is {len(request)}."))
+    if out:
+        return AdBrief(), out
+    if headline:
+        out += check_headline_wish(headline, facts)
+    if request:
+        out += check_picture_request(request)
+    return AdBrief(headline, request, count), out

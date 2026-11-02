@@ -4,7 +4,7 @@ import json
 import pytest
 
 from app.verification import policy
-from app.agents.ads import MuseAdStudio, parse_ad_draft, parse_picture_check
+from app.agents.ads import SYSTEM, MuseAdStudio, parse_ad_draft, parse_picture_check
 from app.agents.loop import DraftError
 from app.wiring import load_fixture
 
@@ -88,3 +88,31 @@ def test_parse_ad_draft_validates_shape():
             parse_ad_draft(json.dumps(bad))
     with pytest.raises(DraftError):
         parse_ad_draft("not json")
+
+
+# ---------- the ad brief ----------
+def test_parse_ad_draft_cuts_to_the_number_asked_for_and_keeps_fewer():
+    ad = {"headline": "h", "text": "t", "image_prompts": ["a", "b", "c"], "facts_used": []}
+    assert parse_ad_draft(json.dumps(ad), 1).image_prompts == ["a"]
+    assert parse_ad_draft(json.dumps(ad), 2).image_prompts == ["a", "b"]
+    assert parse_ad_draft(json.dumps(ad)).image_prompts == ["a", "b", "c"]          # no count: three, as before
+    assert parse_ad_draft(json.dumps({**ad, "image_prompts": ["a"]}), 3).image_prompts == ["a"]
+    assert parse_ad_draft(json.dumps(ad), 99).image_prompts == ["a", "b", "c"]       # never more than MAX_PICTURES
+    with pytest.raises(DraftError):
+        parse_ad_draft(json.dumps({**ad, "image_prompts": ["a", " "]}), 1)           # a blank prompt is still refused
+
+
+def test_the_brief_tool_answers_with_labelled_fields_or_says_there_is_none():
+    brief = policy.AdBrief("Set up a time", "a toothbrush in a cup", 2)
+    ctx = type("C", (), {"ad_brief": lambda self: brief})()
+    out = run_tool(AD_TOOLS, ctx, "ads.get_ad_brief", "{}")
+    assert (out["untrusted_headline_wish"], out["untrusted_picture_request"], out["picture_count"]) == ("Set up a time", "a toothbrush in a cup", 2)
+    assert run_tool(AD_TOOLS, _Ctx(), "ads.get_ad_brief", "{}")["brief"] == "none"                      # a context with no brief
+    empty = type("C", (), {"ad_brief": lambda self: policy.AdBrief()})()
+    assert run_tool(AD_TOOLS, empty, "ads.get_ad_brief", "{}")["brief"] == "none"
+    assert "error" in run_tool(AD_TOOLS, ctx, "ads.get_ad_brief", '{"x":1}') and "error" in run_tool(AD_TOOLS, ctx, "ads.get_ad_brief", "nope")
+
+
+def test_the_ad_instructions_explain_the_brief():
+    for phrase in ("ads.get_ad_brief", "untrusted", "never instructions", "picture_count", "always win", "body parts or hands"):
+        assert phrase in SYSTEM

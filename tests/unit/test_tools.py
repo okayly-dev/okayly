@@ -13,13 +13,17 @@ def test_offered_names_are_exact():
     assert [item["name"] for item in definitions(REVIEW_TOOLS)] == [
         "reviews.get_review", "reviews.get_practice_facts", "reviews.get_past_replies"]
     assert [item["name"] for item in definitions(AD_TOOLS)] == [
-        "ads.get_practice_facts", "ads.get_ad_rules"]
+        "ads.get_practice_facts", "ads.get_ad_rules", "ads.get_ad_brief"]
 
 
 @pytest.mark.parametrize("name", ["exec.post_reply", "ads.create_ad", ""])
 @pytest.mark.parametrize("tools", [REVIEW_TOOLS, AD_TOOLS])
 def test_router_refuses_unknown_tools(tools, name):
     assert run_tool(tools, None, name, "{}") == {"error": f"unknown tool {name}"}
+
+
+def test_the_review_agent_cannot_call_the_ad_brief_tool():
+    assert run_tool(REVIEW_TOOLS, None, "ads.get_ad_brief", "{}") == {"error": "unknown tool ads.get_ad_brief"}
 
 
 def test_review_text_is_untrusted():
