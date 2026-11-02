@@ -18,18 +18,6 @@
       "url": "https://developers.google.com/search/blog/feed.xml",
       "kind": "Official",
       "host": "developers.google.com"
-    },
-    {
-      "name": "Google blog",
-      "url": "https://blog.google/rss/",
-      "kind": "Official",
-      "host": "blog.google"
-    },
-    {
-      "name": "Search Engine Roundtable",
-      "url": "https://www.seroundtable.com/index.rdf",
-      "kind": "Trade press",
-      "host": "seroundtable.com"
     }
   ]
 }

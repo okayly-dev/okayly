@@ -222,3 +222,4 @@ def test_sample_mode_is_labelled_and_costs_nothing():
 def test_source_list_is_valid():
     sources = json.loads(wiring.NEWS_SOURCES.read_text())["sources"]
     assert sources and all(s["url"].startswith("https://") and s["host"] and s["kind"] for s in sources)
+    assert [s["name"] for s in sources] == ["Google Ads blog", "Google Maps blog", "Google Search Central"]
