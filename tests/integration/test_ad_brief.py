@@ -209,7 +209,7 @@ def test_the_refusal_reason_names_what_to_change():
     assert "Pictures cannot show people. Describe an object or a room instead." in str(e.value)
 
 
-@pytest.mark.parametrize("pictures", ["an empty dental chair by a window", "a toothbrush in a cup, no people, no text",
+@pytest.mark.parametrize("pictures", ["an empty dental chair by a window", "a dental chair with arm rests", "a toothbrush in a cup, no people, no text",
                                       "a dental mirror on a clean tray without any people or faces"])
 def test_a_calm_picture_request_and_a_request_that_rules_things_out_are_allowed(pictures):
     o, muse = with_muse()

@@ -35,7 +35,7 @@ All 13 safety rules are listed in [`AGENTS.md`](AGENTS.md), and the layout is in
 
 | Muse piece | Used for |
 |---|---|
-| Muse Spark (`muse-spark-1.3`), Responses API | Reply and ad drafts through a tool-calling loop with 3 read tools for reviews and 2 for ads, capped at 5 rounds |
+| Muse Spark (`muse-spark-1.3`), Responses API | Reply and ad drafts through a tool-calling loop with 3 read tools for reviews and 3 for ads, capped at 5 rounds |
 | Strict structured output | Every draft, picture check and news summary must match a fixed schema |
 | Muse Spark vision | Checks each ad picture (no people, no before-and-after, no health claims) |
 | Muse Image (`muse-image-1.0`) | Ad pictures |

@@ -137,7 +137,8 @@ class MuseAdStudio:
         context = _BriefContext(self.ctx, brief)
         count = brief.picture_count if brief is not None else MAX_PICTURES
         if feedback:
-            prompt += (f"\n\nYour previous ad was blocked by our checks.\nHeadline: {feedback['headline']}\nText: {feedback['text']}\n"
+            # Only our own fixed reasons go back, never the earlier headline or text: it may repeat the person's brief.
+            prompt += (f"\n\nYour previous ad was blocked by our checks.\n"
                        f"Reasons: {' '.join(feedback['issues'])}\nWrite a new ad that fixes every reason.")
         tool_log = []
         draft = run_tool_loop(self.muse, prompt=prompt, instructions=SYSTEM, tools=TOOLS, text_format=AD_FORMAT,

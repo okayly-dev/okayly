@@ -203,7 +203,7 @@ _PEOPLE = re.compile(
     r"\b(?:people|persons?|humans?|men|man|women|woman|kids?|child|children|boys?|girls?|babies|baby|teens?|"
     r"patients?|customers?|couples?|crowds?|families|family(?!\s+dent)|smiling|selfie)\b", re.I)
 _BODY = re.compile(
-    r"\b(?:faces?|heads?|smiles?|teeth|tooth|gums?|mouths?|lips?|tongues?|eyes?|hands?|fingers?|arms?)\b", re.I)
+    r"\b(?:faces?|heads?|smiles?|teeth|tooth|gums?|mouths?|lips?|tongues?|eyes?|hands?|fingers?|arms?(?!\s*rests?))\b", re.I)
 _WRITING = re.compile(
     r"\b(?:text|words?|writing|written|lettering|letters?|captions?|slogans?|logos?|signs?|signage|labels?|"
     r"numbers?|calendars?|quotes?|saying|that says|reads)\b", re.I)
