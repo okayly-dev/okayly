@@ -1,6 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <title>Orchestrator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2714%27 fill=%27%232b63d9%27/%3E%3C/svg%3E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -407,7 +408,8 @@ const GLYPH={
 /* ---- state ---- */
 let S,AD_AFTER,EXPIRY;
 /* ---- live mode: when served by the backend, review replies run through the real API ---- */
-let LIVE=false;
+let LIVE=false,DEMO_CONTROLS=false;
+const demoEnabled=()=>!LIVE||DEMO_CONTROLS;
 const WHY_PERSONAL='Unhappy reviews are best followed by a personal call. This reply is short, says sorry and moves the conversation offline.';
 async function api(method,path,body){const r=await fetch('/api'+path,{method,headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
   const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(j.error||('HTTP '+r.status));e.issues=j.issues;e.status=r.status;throw e}return j}
@@ -616,7 +618,7 @@ function verifyChain(){let prev='0'.repeat(14);for(const e of S.events){const pa
 function activity(){const res=S.verify?(S.verify.ok?`<div class="callout good"><b>The record is intact</b>${S.verify.n} entries checked. None has been altered.</div>`:`<div class="callout bad"><b>The record was altered at entry ${S.verify.at}</b>The stored text no longer matches its fingerprint.</div>`):'';
   return det('activity','What we have done so far',`<ul class="timeline">${[...S.events].reverse().map(e=>`<li><time>${e.time}</time><span>${esc(e.plain)}</span></li>`).join('')}</ul>
   ${S.under?`<div class="under" style="margin-top:14px"><h3>Under the hood: prove the record has not been changed</h3><p class="small muted" style="margin-bottom:12px">Each entry stores a fingerprint of the one before it, so changing history is detectable. This demo uses a simple fingerprint; the real system uses SHA-256.</p>
-   <div class="row" style="margin-bottom:12px"><button class="btn sm" data-act="verify">Check the record</button><button class="btn out sm" data-act="tamper">${S.tamper?'Undo the edit':'Pretend someone edited entry 2'}</button></div>${res}
+   <div class="row" style="margin-bottom:12px"><button class="btn sm" data-act="verify">Check the record</button>${demoEnabled()?`<button class="btn out sm" data-act="tamper">${S.tamper?'Undo the edit':'Pretend someone edited entry 2'}</button>`:''}</div>${res}
    <div class="scroll" style="margin-top:12px"><table><thead><tr><th>#</th><th>Event</th><th>Detail</th><th>Previous</th><th>Fingerprint</th></tr></thead><tbody>${S.events.map(e=>`<tr><td class="num">${e.seq}</td><td class="mono">${e.type}</td><td>${esc(e.detail)}${S.tamper&&e.seq===2?' <span class="status s-stop">edited</span>':''}</td><td class="mono">${e.prev.slice(0,8)}</td><td class="mono">${e.hash.slice(0,8)}</td></tr>`).join('')}</tbody></table></div></div>`:''}`,'plainbox')}
 
 /* ---- tabs ---- */
@@ -627,7 +629,7 @@ function updateCard(){const L=todayList();
    </section>`}
 function vWeek(){const n=pending().length,easy=revPending().filter(k=>k!=='rv1').length;
   const checking=S.checking>=0?`<section class="card"><h2 style="margin-bottom:14px">Looking for new reviews and ideas...</h2><div class="prog">${['Reading your Google and Yelp reviews','Sorting which ones need a personal reply','Checking replies against your privacy rules','Writing draft replies and making pictures'].map((t,i)=>`<div class="${i<S.checking?'fin':i===S.checking?'on':''}"><b>${i<S.checking?'&#10003;':i+1}</b>${t}</div>`).join('')}</div></section>`:'';
-  const presenter=S.under?`<section class="under"><h3>Presenter controls</h3><p class="small muted">Shows the safety checks working. Turn these on, then press Yes.</p>
+  const presenter=S.under&&demoEnabled()?`<section class="under"><h3>Presenter controls</h3><p class="small muted">Shows the safety checks working. Turn these on, then press Yes.</p>
     <label class="ck"><input type="checkbox" data-act="sim" data-kind="rv1" ${S.sim.rv1?'checked':''}><span>The reviewer edits their review right after I say yes to the reply</span></label>
     <label class="ck"><input type="checkbox" data-act="sim" data-kind="ad" ${S.sim.ad?'checked':''}><span>Someone saves an ad with the same name right after I say yes to the ad</span></label>
     <label class="ck"><input type="checkbox" data-act="quiet" ${S.quiet?'checked':''}><span>Pretend it is a quiet day (nothing new to report)</span></label>
@@ -766,7 +768,7 @@ async function execute(kind){const a=S.acts[kind];if(a.state!=='APPROVED'||a.han
 function drift(kind){if(kind==='rv1'){S.rev.g1.text+=' (Edit: the wait was closer to an hour.)';addEvent('sandbox.changed','The reviewer edited their review (demo).','review text changed outside the orchestrator')}
   else{S.ads.push({name:AD_AFTER.name,status:'paused',picture:'B',headline:'Implant ad (teammate draft)',text:'',format:'wide'});addEvent('sandbox.changed','A teammate already saved an ad with that name (demo).','name collision')}}
 async function liveApprove(key){const a=S.acts[key];a.state='EXECUTING';render();
-  try{if(S.sim[key]){if(a.kind==='ad')await api('POST','/demo/ads/collide',{name:a.after.name});else await api('POST','/demo/reviews/'+a.after.review+'/edit',{});S.sim[key]=false}
+  try{if(DEMO_CONTROLS&&S.sim[key]){if(a.kind==='ad')await api('POST','/demo/ads/collide',{name:a.after.name});else await api('POST','/demo/reviews/'+a.after.review+'/edit',{});S.sim[key]=false}
     await api('POST','/proposals/'+a.id+'/approve',{hash:a.hash})}catch(e){S.apiErr=e.message}
   await refreshLive();render()}
 async function approve(kind){if(LIVE&&S.acts[kind].live)return liveApprove(kind);const a=S.acts[kind];if(kind==='ad'&&a.after.picture==='U'&&!(UP&&UP.ok))return;setState(a,'APPROVED');
@@ -832,9 +834,9 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
       a.after.reply=t;rehash(a);S.editing=null;S.rmsg=null;addEvent('draft.edited','You changed the wording of a reply. We checked it again and it passed.','privacy check passed; hash '+a.hash.slice(0,12));render();break}
    case 'rev-copy':{const a=S.acts[kind];try{navigator.clipboard&&navigator.clipboard.writeText(a.after.reply).catch(()=>{})}catch(e){}S.copied=kind;render();setTimeout(()=>{S.copied=null;if(S.tab==='reviews'||S.tab==='week')render()},1800);break}
    case 'rev-filter':S.rfilter=val;render();break;
-   case 'reset':audioStop();if(LIVE){init();S.loading=true;render();api('POST','/demo/reset').then(()=>loadLive()).then(()=>{S.loading=false;render();window.scrollTo(0,0)})}else{init();render();window.scrollTo(0,0)}break;
+   case 'reset':if(!demoEnabled())break;audioStop();if(LIVE){init();S.loading=true;render();api('POST','/demo/reset').then(()=>loadLive()).then(()=>{S.loading=false;render();window.scrollTo(0,0)})}else{init();render();window.scrollTo(0,0)}break;
    case 'verify':if(LIVE){api('GET','/audit/verify').then(v=>{S.verify={ok:v.ok,n:v.checked,at:v.at};render()})}else{S.verify=verifyChain();render()}break;
-   case 'tamper':if(LIVE){api('POST','/demo/audit/tamper',{on:!S.tamper}).then(t=>{S.tamper=t.tampered;S.verify=null;return syncEvents()}).then(render)}else{S.tamper=!S.tamper;S.verify=null;render()}break;
+   case 'tamper':if(!demoEnabled())break;if(LIVE){api('POST','/demo/audit/tamper',{on:!S.tamper}).then(t=>{S.tamper=t.tampered;S.verify=null;return syncEvents()}).then(render)}else{S.tamper=!S.tamper;S.verify=null;render()}break;
    /* audio */
    case 'aud-toggle':audioToggle();break;
    case 'aud-stop':audioStop();break;
@@ -862,5 +864,5 @@ document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if
    case 'cfg-remove':{const p=S.cfg.practices.splice(Number(el.dataset.i),1)[0];render();cfgEvent('You stopped watching '+p.name+'.','practice allowlist -1');break}
   }});
 applyBrand();init();render();
-if(location.protocol.startsWith('http')){S.loading=true;render();api('GET','/health').then(async h=>{LIVE=true;S.drafter=h.drafter;await loadLive();S.loading=false;render()}).catch(()=>{LIVE=false;S.loading=false;render()})}
+if(location.protocol.startsWith('http')){S.loading=true;render();api('GET','/health').then(async h=>{LIVE=true;DEMO_CONTROLS=h.demo_controls===true;S.drafter=h.drafter;await loadLive();S.loading=false;render()}).catch(()=>{LIVE=false;S.loading=false;render()})}
 </script>

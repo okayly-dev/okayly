@@ -71,7 +71,7 @@ def step(n):
         d = (b.get("data") or [{}])[0] if isinstance(b, dict) else {}
         show(n, s, b, t, {"keys": list(d.keys()), "has_b64": bool(d.get("b64_json")), "has_url": bool(d.get("url")), "error": b.get("error")})
         if d.get("b64_json"):
-            import base64; open(os.path.join(os.path.dirname(__file__), "sample-image.png"), "wb").write(base64.b64decode(d["b64_json"]))
+            import base64; open(os.path.join(os.path.dirname(__file__), "sample-image.webp"), "wb").write(base64.b64decode(d["b64_json"]))
     else:
         print("unknown step", n)
 
@@ -90,7 +90,7 @@ def step2(n):
         show(n, s, b, t, {"output_types": kinds, "text": text[:600], "error": b.get("error") if isinstance(b, dict) else None})
     elif n == "review":
         import base64
-        img = base64.b64encode(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "sample-image.png"), "rb").read()).decode()
+        img = base64.b64encode(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "sample-image.webp"), "rb").read()).decode()
         msg = [{"role": "user", "content": [
             {"type": "text", "text": "Review this ad picture for a dental practice. Answer in JSON with keys: has_people (bool), has_before_after (bool), has_text (bool), has_health_claim (bool), notes (string)."},
             {"type": "image_url", "image_url": {"url": "data:image/png;base64," + img}}]}]

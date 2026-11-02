@@ -66,7 +66,7 @@ def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
 
     @app.get("/api/health")
     def health():
-        return {"ok": True, "drafter": type(orch.drafter).__name__}
+        return {"ok": True, "drafter": type(orch.drafter).__name__, "demo_controls": demo}
 
     @app.get("/api/reviews")
     def reviews():

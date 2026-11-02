@@ -1,3 +1,5 @@
+import pytest
+
 from fastapi.testclient import TestClient
 
 from app.api import create_app
@@ -6,6 +8,13 @@ from app.wiring import build
 
 def client(demo=True):
     return TestClient(create_app(build(db_path=":memory:", drafter="fixture"), demo_controls=demo))
+
+
+@pytest.mark.parametrize("demo", [True, False])
+def test_health_reports_demo_controls(demo):
+    assert client(demo=demo).get("/api/health").json() == {
+        "ok": True, "drafter": "FixtureDrafter", "demo_controls": demo,
+    }
 
 
 def test_full_flow_over_http():
@@ -34,7 +43,9 @@ def test_unknown_things_are_404_and_demo_controls_can_be_off():
     c = client(demo=False)
     assert c.get("/api/proposals/nope").status_code == 404
     assert c.post("/api/reviews/zzz/propose").status_code == 404
-    assert c.post("/api/demo/reviews/g1/edit", json={}).status_code in (404, 405)  # route is not registered
+    assert c.post("/api/demo/reviews/g1/edit", json={}).status_code == 405
+    assert c.post("/api/demo/audit/tamper", json={"on": True}).status_code == 405
+    assert c.post("/api/demo/reset").status_code == 405
 
 
 def test_demo_edit_makes_the_executor_refuse():
