@@ -84,6 +84,17 @@ docker compose logs --tail=100 app caddy
 
 ## 6. Update, stop, or reset
 
+When the owner has installed `deploy/update-code` on their user PATH, either coding agent or a terminal can run:
+
+```sh
+update-code --check
+update-code
+```
+
+`--check` tests a snapshot of saved `master` without contacting the server. The normal command runs those same checks, shows the exact revision and asks for `deploy` plus that revision before uploading. It does not commit, merge or push; uncommitted edits are not deployed. Server details are read from the private `~/.config/okayly/update-code.json`, outside the repository. The fields are `repo`, `ssh_target`, `key_file`, `known_hosts`, `remote_dir` and the HTTPS `health_url`; `python` optionally selects the local test interpreter, defaulting to the repository's `.venv/bin/python`.
+
+The command builds before stopping the current app, keeps the previous source and image, preserves the server-only `.env` and Docker volumes, and recreates only the app. Caddy is left running. Hosting configuration changes need a separate review. Failed startup restores the previous source and image; it does not undo database changes made by new application code. Old images and source backups are retained for owner-managed cleanup. A successful update records its revision and checksum in the private `update-code.log` beside the configuration. Public verification reads only `/api/health`, never a paid drafting endpoint.
+
 To update before cloning is approved, create and check a new snapshot of reviewed `master`, then copy it as above. Stop the stack and replace its source files with that snapshot while preserving the server-only `.env` and Docker volumes. Start with `docker compose up -d --build`. Do not unpack an archive over `.env` without first checking its contents.
 
 Once a reviewed clone is in use, `git pull --ff-only` followed by `docker compose up -d --build` is the update route.
