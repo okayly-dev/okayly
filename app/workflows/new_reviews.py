@@ -3,7 +3,7 @@ No Muse call happens here. The reply is drafted later by the normal flow when th
 and the new review text reaches Muse only through the labelled read tool, like every other review."""
 from ..providers.seed import add_review, load_new_reviews
 
-WAITING_LIMIT = 3   # at this many unanswered reviews, no new one is added
+WAITING_LIMIT = 6   # at this many unanswered reviews, no new one is added (a fresh demo starts with 4 waiting)
 
 FOUND = "Found a new review."
 WAIT_FIRST = "Reply to the ones waiting first."

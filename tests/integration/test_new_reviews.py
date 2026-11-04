@@ -61,25 +61,27 @@ def test_the_route_needs_no_demo_flag_and_adds_the_pool_in_order_one_per_call():
     assert len(c.get("/api/reviews").json()) == 7 + 2
 
 
-def test_it_adds_none_when_three_or_more_are_waiting():
+def test_it_adds_none_when_six_or_more_are_waiting():
     o = orch()
     c = client(o)
     assert len(waiting(c)) == 4   # g1, g2, y1 and y3 have no reply yet
+    assert c.post("/api/reviews/check-new").json()["status"] == "added"    # a fresh demo works at once
+    assert c.post("/api/reviews/check-new").json()["status"] == "added"
+    assert len(waiting(c)) == 6
     out = c.post("/api/reviews/check-new").json()
     assert out == {"status": "waiting_first", "message": "Reply to the ones waiting first.", "review": None}
-    assert len(c.get("/api/reviews").json()) == 7
-    answer(c, "g1")
-    answer(c, "g2")   # two waiting now: y1 and y3
+    assert len(c.get("/api/reviews").json()) == 7 + 2
+    answer(c, "g1")   # five waiting now
     assert c.post("/api/reviews/check-new").json()["status"] == "added"
-    assert len(waiting(c)) == 3
     assert c.post("/api/reviews/check-new").json()["status"] == "waiting_first"
 
 
 def test_a_yelp_reply_the_person_approved_counts_as_answered():
     c = client()
     for rid in ("g1", "g2"):
-        answer(c, rid)
-    assert c.post("/api/reviews/check-new").json()["status"] == "added"    # y1, y3 and the new one wait: 3 waiting
+        answer(c, rid)   # y1 and y3 wait
+    for _ in range(4):
+        assert c.post("/api/reviews/check-new").json()["status"] == "added"    # six waiting
     assert c.post("/api/reviews/check-new").json()["status"] == "waiting_first"
     answer(c, "y1")   # approved for hand-off: the reply is never posted by the app, but the person has dealt with it
     assert c.post("/api/reviews/check-new").json()["status"] == "added"
@@ -115,13 +117,13 @@ def test_every_pool_review_gets_a_reply_that_passes_the_rules():
 def test_each_call_writes_one_audit_entry_and_the_chain_verifies():
     o = orch()
     c = client(o)
-    c.post("/api/reviews/check-new")   # refused: four are waiting
-    answer(c, "g1")
-    answer(c, "g2")
     c.post("/api/reviews/check-new")   # adds n1
-    entries = [e for e in o.audit.events(1000) if e["type"] == "reviews.checked"]
-    assert len(entries) == 2
-    assert "new review: none" in entries[1]["detail"] and "new review: n1" in entries[0]["detail"]
+    c.post("/api/reviews/check-new")   # adds n2
+    c.post("/api/reviews/check-new")   # refused: six are waiting
+    entries = [e for e in o.audit.events(1000) if e["type"] == "reviews.checked"]   # newest first
+    assert len(entries) == 3
+    assert "new review: none" in entries[0]["detail"] and "new review: n2" in entries[1]["detail"]
+    assert "new review: n1" in entries[2]["detail"]
     assert o.audit.verify()["ok"] is True
 
 
