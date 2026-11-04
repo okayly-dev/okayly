@@ -90,6 +90,13 @@ def test_items_about_nothing_relevant_are_dropped():
     assert rules.keep_item(item(title="Business Profile update"), SOURCE, NOW)
 
 
+def test_everyday_ads_search_and_maps_news_is_kept_but_lookalike_words_are_not():
+    assert rules.keep_item(item(title="Google is expanding AI Mode ads to 10 new countries"), SOURCE, NOW)
+    assert rules.keep_item(item(title="Search Central Live is back"), SOURCE, NOW)
+    assert rules.keep_item(item(title="New walking routes in Maps"), SOURCE, NOW)
+    assert not rules.keep_item(item(title="Faster downloads and new headsets"), SOURCE, NOW)
+
+
 @pytest.mark.parametrize("summary, ok", [
     ("Google changed how health ads are approved.", True),
     ("", False), ("   ", False),
