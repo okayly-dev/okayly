@@ -548,7 +548,7 @@ function updateAudio(){if(typeof document==='undefined')return;if(S.tab==='news'
 
 /* ---- parts ---- */
 /* Live mode: the plain line under "Check for new reviews" (S.checkNote is set by analyze()). */
-const CHECK_TEXT={added:'Found a new review. It is a made-up sample, like the others. Open Reviews to see it and its suggested reply.',waiting_first:'Reply to the ones waiting first. Then check again.',none_left:'No new reviews right now.'};
+const CHECK_TEXT={added:'Found a new review. Open Reviews to see it.',waiting_first:'Reply to the ones waiting first. Then check again.',none_left:'No new reviews right now.'};
 function checkLine(){if(!LIVE)return '';if(S.checkBusy)return '<p class="small muted" role="status" style="margin:0 0 14px">Checking&hellip;</p>';const n=S.checkNote;if(!n)return '';return `<p class="small ${n.status==='added'?'':'muted'}" role="status" style="margin:0 0 14px">${esc(n.text)}</p>`}
 function reviewsCard(){const R=RSTAT,tile=(l,big,sub,good)=>`<div class="tile"><div class="l">${l}</div><div class="big num">${big}</div><div class="${good?'up':'down'}">${sub}</div></div>`;
   const pc=Math.round(R.answered/R.newN*100),pp=Math.round(R.prevAnswered/R.prevOf*100),mx=Math.max(...R.dist);

@@ -13,7 +13,7 @@ Built with Meta's Muse models for the Meta Global AI Developer Hackathon (Build 
 | Screen | What happens |
 |---|---|
 | **Reviews** | New reviews come in. Muse Spark drafts a reply from the review, the practice's facts and past replies. Code checks the reply for privacy and claims. A person edits or approves it. The executor posts it to a sandbox Google profile and reads it back. A Yelp reply stops as a hand-off, because we found no way for an app to post one. |
-| **New reviews** | The "Check for new reviews" button adds one made-up review at a time (six in all) so there is something new to answer. It adds none while 3 or more are waiting, and starts again after "Reset the demo". It makes no model call. |
+| **New reviews** | The "Check for new reviews" button adds one made-up review at a time (six in all) so there is something new to answer. It adds none while 6 or more are waiting, and starts again after "Reset the demo". It makes no model call. |
 | **Ads** | Content creation. The person names an ad and can add a headline idea, say what the pictures should show and choose 1 to 3 pictures. Muse Spark writes the words, Muse Image draws the pictures and Muse Spark vision checks them. The person picks a picture, can change the wording, and approves. The ad is saved **paused** in a sandbox ad account. See [Creating ad content](#creating-ad-content). |
 | **News** | Code reads three approved public feeds (Google Ads blog, Google Maps blog, Google Search Central), keeps recent and on-topic items, and shows up to three. Muse writes a one-line summary. The link, date and source always come from the feed. |
 | **Audit** | Every step goes into an append-only log where each entry carries the hash of the one before. One call checks that the chain is intact. |
@@ -190,7 +190,7 @@ Defined in `app/api.py`. The browser is the static page mounted at `/`.
 | GET | `/api/health` | Reports the app is up and which drafter is wired. |
 | GET | `/api/reviews` | Lists sandbox reviews. |
 | POST | `/api/reviews/{review_id}/propose` | Drafts a reply, or leaves the review for a person. |
-| POST | `/api/reviews/check-new` | Adds the next made-up review from `app/fixtures/new_reviews.json` (at most one per call). Adds none if 3 or more reviews are still waiting for a reply, or if the pool is used up. Always writes one `reviews.checked` audit entry in the same transaction. No model call. Not a demo-only route. |
+| POST | `/api/reviews/check-new` | Adds the next made-up review from `app/fixtures/new_reviews.json` (at most one per call). Adds none if 6 or more reviews are still waiting for a reply, or if the pool is used up. Always writes one `reviews.checked` audit entry in the same transaction. No model call. Not a demo-only route. |
 | GET | `/api/ads` | Lists sandbox ads. |
 | POST | `/api/ads/propose` | Drafts a paused ad, pictures included. Optional `headline_wish` (up to 40 characters), `picture_request` (up to 200) and `picture_count` (1 to 3). Code checks them against the ad and picture rules first and refuses with a plain reason before any spend. |
 | GET | `/api/images/{sha}` | Returns one stored picture by its SHA-256. |
