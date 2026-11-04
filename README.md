@@ -2,7 +2,7 @@
 
 An AI marketing assistant for a local practice that never acts without a person's OK.
 
-A small practice gets reviews it should answer and ads it should run, and it has no time to do either well. A wrong reply can also do real harm: it can confirm that someone was a patient, or promise a result. Okayly drafts the work and leaves the decision to a person. It reads new reviews and drafts replies, and it drafts ads with pictures. Fixed rules in code check every draft. A person approves the exact text, and separate code does the work and reads the result back.
+A small practice gets reviews it should answer and ads it should run, and it has no time to do either well. A wrong reply can also do real harm: it can confirm that someone was a patient, or promise a result. Okayly drafts the work and leaves the decision to a person. It reads new reviews and drafts replies, and it creates ad content (a headline, the ad text and pictures) from a few plain inputs. Fixed rules in code check every draft. A person approves the exact text, and separate code does the work and reads the result back.
 
 Built with Meta's Muse models for the Meta Global AI Developer Hackathon (Build for Your World, Indie track).
 
@@ -14,9 +14,25 @@ Built with Meta's Muse models for the Meta Global AI Developer Hackathon (Build 
 |---|---|
 | **Reviews** | New reviews come in. Muse Spark drafts a reply from the review, the practice's facts and past replies. Code checks the reply for privacy and claims. A person edits or approves it. The executor posts it to a sandbox Google profile and reads it back. A Yelp reply stops as a hand-off, because we found no way for an app to post one. |
 | **New reviews** | The "Check for new reviews" button adds one made-up review at a time (six in all) so there is something new to answer. It adds none while 3 or more are waiting, and starts again after "Reset the demo". It makes no model call. |
-| **Ads** | Muse Spark drafts the ad text, Muse Image draws the picture, and Muse Spark vision checks the picture. The person approves the exact text and picture. The ad is saved **paused** in a sandbox ad account. The code has no way to switch it on or set a budget. The person can also give a headline idea, say what the pictures should show, and pick 1 to 3 pictures; code checks those words first and Muse reads them only through a labelled read tool. |
+| **Ads** | Content creation. The person names an ad and can add a headline idea, say what the pictures should show and choose 1 to 3 pictures. Muse Spark writes the words, Muse Image draws the pictures and Muse Spark vision checks them. The person picks a picture, can change the wording, and approves. The ad is saved **paused** in a sandbox ad account. See [Creating ad content](#creating-ad-content). |
 | **News** | Code reads three approved public feeds (Google Ads blog, Google Maps blog, Google Search Central), keeps recent and on-topic items, and shows up to three. Muse writes a one-line summary. The link, date and source always come from the feed. |
 | **Audit** | Every step goes into an append-only log where each entry carries the hash of the one before. One call checks that the chain is intact. |
+
+## Creating ad content
+
+The Ads screen turns a few plain inputs into an ad that a person approves. Nothing is saved until they say yes, and it is saved paused.
+
+| Step | Who | What happens |
+|---|---|---|
+| 1. Brief | Person | A name (required). Optionally a headline idea (up to 40 characters), a line about what the pictures should show (up to 200 characters), and how many pictures (1 to 3). |
+| 2. Check the words first | Code | Before anything is drafted or paid for, code checks the headline idea against the ad rules and the picture request against the picture rules. A headline that breaks a rule, or a request for people, faces, hands or writing in a picture, is turned down with a plain reason, and nothing is drafted or spent. |
+| 3. Write | Muse Spark | Reads the practice facts and the ad rules through read-only tools. The person's brief reaches Muse only as a labelled, untrusted tool result, never inside its instructions. It writes a headline (up to 40 characters), ad text (up to 125) and one picture prompt per picture asked for. A good headline idea is used as written. |
+| 4. Draw | Muse Image | Draws each picture. The prompts ask for flat, calm illustrations of an object or an empty room. |
+| 5. Check the pictures | Muse Spark vision, then code | Looks at each picture for people, before-and-after, health claims and text that is hard to read. Code makes the final call, and a blocked picture is shown disabled. |
+| 6. Choose and refine | Person | Picks a picture and can retype the headline or text. Code re-checks every change. |
+| 7. Approve | Person, then executor | The person approves the exact words and picture. The executor saves the ad as a paused draft in a sandbox ad account and reads it back to confirm it matches. |
+
+The ad rules, all enforced in code: no before-and-after, results or guarantees, no health claims, no ratings, awards or "best" claims, no talk of patients or reviews, and no prices or offers unless the practice's details list them. The headline idea, the picture request and the picture count are recorded in the audit log with the draft.
 
 ## The part that matters: code decides, not the model
 
@@ -57,20 +73,15 @@ Known gaps in the rules are listed in the eval cases (`known_gap`), not hidden.
 
 ## What it costs
 
-Real costs from our own test runs, not estimates. Nothing here is a price list.
+Real costs from our own runs, not estimates. Nothing here is a price list.
 
 | What we ran | Cost |
 |---|---|
-| 3 real replies (12 model calls) | about $0.03 |
-| 3 ad drafts with pictures | about $0.05 |
-| One News check (3 summaries) | about $0.02 |
-| Full real-model walk-through, reply and ad approved through the screen (43 calls) | about $0.26 |
-| The 56-case real-model eval (114 calls) | about $0.36 |
-| All testing so far | about $1.70 |
+| One ad draft with two pictures, real model (two checks) | about $0.05 each |
+| One picture from Muse Image | about $0.01 ([`spike/RESULTS.md`](spike/RESULTS.md)) |
+| The 56-case real-model eval (114 calls) | about $0.36 (`evals/results/`) |
 
-Only the 56-case eval has its result file in this repo (`evals/results/`). The other rows come from the usage records of our own runs, rounded.
-
-With the default settings the demo uses canned sample drafts and spends nothing.
+The app shows a running total of model calls and spend, and a daily cap (default $2) stops the calls when it is reached. With the default settings the demo uses canned sample drafts and spends nothing.
 
 ## Run it
 
