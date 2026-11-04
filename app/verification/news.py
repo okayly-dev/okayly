@@ -12,7 +12,7 @@ MAX_SUMMARY_CHARS = 240
 # An item must mention one of these to be shown. Edit this list to tune what counts as relevant.
 TOPICS = ("dental", "dentist", "healthcare", "health ad", "review", "business profile", "local search",
           "local business", "local results", "local service", "advertis", "google ads", "privacy", "ranking",
-          "spam", "policy")
+          "spam", "policy", "ads", "ai mode", "search", "maps")
 
 
 def is_recent(published: datetime, now: datetime) -> bool:
@@ -28,7 +28,8 @@ def link_matches_source(link: str, host: str) -> bool:
 
 def is_relevant(title: str, text: str) -> bool:
     words = f"{title} {text}".lower()
-    return any(topic in words for topic in TOPICS)
+    # a topic must start a word, so "ads" does not match "downloads" or "leads"
+    return any(re.search(r"\b" + re.escape(topic), words) for topic in TOPICS)
 
 
 def keep_item(item, source: dict, now: datetime) -> bool:
