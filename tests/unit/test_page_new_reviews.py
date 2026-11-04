@@ -31,3 +31,8 @@ def test_a_saved_ad_stays_on_this_week_as_a_finished_line_and_is_escaped():
     assert "esc(x.name)" in AD_DONE and "esc(x.headline)" in AD_DONE
     assert "if(!a)return adDoneLive()" in PAGE
     assert "x.state==='VERIFIED'" in PAGE   # only a saved and checked ad is kept; an unfinished one may still go away
+
+
+def test_draft_another_ad_opens_the_ads_tab_on_the_live_page():
+    handler = between("case 'repropose':{if(LIVE&&kind==='ad'", "break}")
+    assert "S.tab='ads'" in handler and "S.acts.ad=null" in handler
