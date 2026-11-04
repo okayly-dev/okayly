@@ -1,0 +1,17 @@
+{
+  "note": "Made-up reviews for the 'Check for new reviews' button. Fictional names, nothing real. Replies for the offline drafter are in sample.json under fixture_drafts.",
+  "reviews": [
+    {"id": "n1", "platform": "Google", "stars": 5, "who": "Hannah W.", "date": "Oct 26", "reply": null,
+     "text": "Booked online in two minutes and the whole team was lovely. Would happily recommend."},
+    {"id": "n2", "platform": "Yelp", "stars": 4, "who": "Chris P.", "date": "Oct 27", "reply": null,
+     "text": "Spotless waiting area and everyone was friendly. I wish there were a few more evening hours."},
+    {"id": "n3", "platform": "Google", "stars": 5, "who": "Tasha L.", "date": "Oct 28", "reply": null,
+     "text": "Calm, gentle and professional. The front desk answered all my questions, even about parking."},
+    {"id": "n4", "platform": "Google", "stars": 2, "who": "Elena V.", "date": "Oct 29", "reply": null,
+     "text": "The office was clean and the staff were kind, but I waited a long time past my booked time and nobody gave me an update. Disappointed."},
+    {"id": "n5", "platform": "Yelp", "stars": 3, "who": "Ben D.", "date": "Oct 30", "reply": null,
+     "text": "Nice people, but the phone line was busy for two days before I got through to book."},
+    {"id": "n6", "platform": "Google", "stars": 5, "who": "Ravi N.", "date": "Oct 31", "reply": null,
+     "text": "No long wait, and everything was explained clearly. The front lot was a little tight."}
+  ]
+}

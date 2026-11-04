@@ -78,6 +78,10 @@ def create_app(orchestrator=None, demo_controls: bool | None = None) -> FastAPI:
     def reviews():
         return orch.list_reviews()
 
+    @app.post("/api/reviews/check-new")
+    def check_new_reviews():
+        return orch.check_new_reviews()
+
     @app.post("/api/reviews/{review_id}/propose")
     def propose(review_id: str):
         return orch.propose_reply(review_id)

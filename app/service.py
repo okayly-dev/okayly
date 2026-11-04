@@ -9,7 +9,7 @@ import time
 
 from .executors.executor import Executor
 from .providers.read import SandboxReader
-from .workflows import approval_gate, demo, edit, propose, queries, reject
+from .workflows import approval_gate, demo, edit, new_reviews, propose, queries, reject
 from .workflows.runtime import TTL_SECONDS, Runtime
 
 
@@ -41,6 +41,9 @@ class Orchestrator:
 
     def check_news(self) -> dict:
         return self.news.run()
+
+    def check_new_reviews(self, pool: list[dict] | None = None) -> dict:
+        return new_reviews.check_new_reviews(self.rt, pool)
 
     def drafter_context(self):
         return queries.drafter_context(self.rt)
