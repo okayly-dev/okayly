@@ -114,6 +114,48 @@
         "escalate": true,
         "escalate_reason": "Mentions a billing problem and legal action."
       }
+    },
+    "n1": {
+      "first": {
+        "reply": "Thank you for the kind words about our team. We are glad booking online was easy, and we appreciate you taking the time to write this.",
+        "facts_used": []
+      }
+    },
+    "n2": {
+      "first": {
+        "reply": "Thank you for sharing this. We are glad the office felt clean and welcoming. We have passed your note about evening hours to the team.",
+        "facts_used": []
+      }
+    },
+    "n3": {
+      "first": {
+        "reply": "Thank you for the kind words. We are glad our team could answer your questions. When the front lot is full, extra parking is available behind the building.",
+        "facts_used": [
+          "parking"
+        ]
+      }
+    },
+    "n4": {
+      "first": {
+        "reply": "Thank you for telling us about this. A long wait with no update is not the experience we want for anyone, and we are sorry. We would like to hear more. Please call our office on (555) 010-0142 and ask for the office manager.",
+        "facts_used": [
+          "phones"
+        ]
+      }
+    },
+    "n5": {
+      "first": {
+        "reply": "Thank you for telling us this. We are sorry the phone line was hard to get through on. We have passed your note to the team.",
+        "facts_used": []
+      }
+    },
+    "n6": {
+      "first": {
+        "reply": "Thank you for the kind words. We are glad things were explained clearly. When the front lot is full, extra parking is available behind the building.",
+        "facts_used": [
+          "parking"
+        ]
+      }
     }
   },
   "ads": [

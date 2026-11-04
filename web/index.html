@@ -439,7 +439,7 @@ const FMT_UI={wide:'wide',square:'square',tall:'story'},FMT_API={wide:'wide',squ
 const AD_CHECKS=[['no_people','No people or faces'],['no_before_after','No before-and-after photos'],['no_health_claim','No claims about a person\'s health'],['text_legible','Easy to read on a phone']];
 const toAdAct=p=>{const x=p.after;return {id:p.id,key:'ad',kind:'ad',attempt:p.attempt,before:p.before,after:{name:x.name,headline:x.headline,text:x.text,format:FMT_UI[x.format]||'wide',picture:x.image_sha,media:null,status:'paused'},state:p.state,reason:p.reason||'',hash:p.hash,handoff:false,live:true,cands:(p.extra&&p.extra.candidates)||[],brief:(p.extra&&p.extra.brief)||null,first:p.first_draft}};
 async function loadLiveAds(){const r=await api('GET','/ads');const p=r.proposals[0];
-  S.acts.ad=p&&!S.adNew?toAdAct(p):null;S.ads=r.ads.map(x=>({name:x.name,status:x.status,picture:'-'}))}
+  S.acts.ad=p&&!S.adNew?toAdAct(p):null;S.adDone=r.proposals.filter(x=>x.state==='VERIFIED').map(x=>({name:x.after.name,headline:x.after.headline}));S.ads=r.ads.map(x=>({name:x.name,status:x.status,picture:'-'}))}
 const adMsgText=e=>e.issues&&e.issues.length?e.issues.map(i=>i.message).join(' '):e.message;
 async function adCall(path,body){const a=S.acts.ad;try{S.acts.ad=toAdAct(await api('POST','/proposals/'+a.id+path,body));S.amsg=null;S.adMsg=''}catch(e){S.amsg=[adMsgText(e)]}
   await syncEvents();render()}
@@ -465,10 +465,13 @@ function adStartLive(){const busy=S.adBusy;
       <div class="fld" style="margin-top:14px"><label for="adcount">How many pictures?</label><select class="inp" id="adcount" aria-describedby="adcount-h">${[1,2,3].map(n=>`<option value="${n}"${(S.adCount||3)===n?' selected':''}>${n}</option>`).join('')}</select><span class="fine" id="adcount-h" style="margin-top:0">Muse makes up to this many. We check each one.</span></div>
       <div class="btns" style="margin-top:12px"><button class="btn" data-act="ad-draft">Draft the ad</button></div><p class="fine">Muse writes the words and makes the pictures. Every line and picture is checked against the ad rules before you see it. Nothing is saved until you say yes, and it is saved paused.</p>`}
     ${S.adMsg?`<p class="small" role="alert" style="margin-top:12px;color:var(--bad-ink)">${esc(S.adMsg)}</p>`:''}</section>`}
-function adCardLive(){const a=S.acts.ad;if(!a)return '';const st=a.state;let body;
+/* A saved (verified) ad stays on This week as a finished line, even after "Draft another ad" clears the card. */
+function adDoneLive(){const shown=S.acts.ad&&S.acts.ad.state==='VERIFIED'?S.acts.ad.after.name:null,list=(S.adDone||[]).filter(x=>x.name!==shown);if(!list.length)return '';
+  return `<section class="card soft"><h3 style="margin-bottom:10px">Ads saved as paused drafts</h3><ul class="plain">${list.map(x=>`<li><b>&#10003; ${esc(x.name)}</b>: ${esc(x.headline)}. Saved paused and checked. It is not running and no money is being spent.</li>`).join('')}</ul></section>`}
+function adCardLive(){const a=S.acts.ad;if(!a)return adDoneLive();const st=a.state;let body;
   if(st==='PROPOSED')body=`${adFirstLive(a)}${adWordsLive(a)}${pickGridLive(a)}<p class="picknote">Muse Image made these pictures. We never use patient photos or before-and-after shots. <button class="linkbtn" data-act="tab" data-tab="ads">Change the shape in the Ads tab</button></p>${S.rejecting==='ad'?rejectBox('ad'):`<div class="btns"><button class="btn" data-act="approve" data-kind="ad">Yes, save this ad as a draft</button><button class="btn out" data-act="start-reject" data-kind="ad">Not now</button></div>`}<p class="fine">It is saved as a paused draft. Nothing runs and no money is spent. This OK expires in ${hours()} hours.</p>`;
   else body=adStateLive(a);
-  return `<article class="card feature"><span class="kind">New ad</span><h2>${esc(a.after.headline)}</h2>${body}${S.under?techDetails('ad'):''}</article>`}
+  return `<article class="card feature"><span class="kind">New ad</span><h2>${esc(a.after.headline)}</h2>${body}${S.under?techDetails('ad'):''}</article>`+adDoneLive()}
 function vAdsLive(){const a=S.acts.ad;if(!a)return adStartLive();const st=a.state,open=st==='PROPOSED',lab=adLabelLive(st);
   const sel=a.cands.find(c=>c.sha===a.after.picture),rv=(sel&&sel.review)||{};
   const checks=AD_CHECKS.map(k=>{const ok=rv[k[0]]===true;return `<li><span class="${ok?'ok':'warn'}">${ok?'&#10003;':'&#9888;'}</span><span>${k[1]}</span></li>`}).join('');
@@ -544,9 +547,13 @@ function audioHtml(full){const c=S.cfg;
 function updateAudio(){if(typeof document==='undefined')return;if(S.tab==='news'&&S.news.sub==='feed'){render();return}document.querySelectorAll?.('.aud-mount').forEach(el=>{el.innerHTML=audioHtml(el.dataset.full==='1')})}
 
 /* ---- parts ---- */
+/* Live mode: the plain line under "Check for new reviews" (S.checkNote is set by analyze()). */
+const CHECK_TEXT={added:'Found a new review. It is a made-up sample, like the others. Open Reviews to see it and its suggested reply.',waiting_first:'Reply to the ones waiting first. Then check again.',none_left:'No new reviews right now.'};
+function checkLine(){if(!LIVE)return '';if(S.checkBusy)return '<p class="small muted" role="status" style="margin:0 0 14px">Checking&hellip;</p>';const n=S.checkNote;if(!n)return '';return `<p class="small ${n.status==='added'?'':'muted'}" role="status" style="margin:0 0 14px">${esc(n.text)}</p>`}
 function reviewsCard(){const R=RSTAT,tile=(l,big,sub,good)=>`<div class="tile"><div class="l">${l}</div><div class="big num">${big}</div><div class="${good?'up':'down'}">${sub}</div></div>`;
   const pc=Math.round(R.answered/R.newN*100),pp=Math.round(R.prevAnswered/R.prevOf*100),mx=Math.max(...R.dist);
-  return `<section class="card"><div class="card-h"><h2>How your reviews are doing</h2><button class="btn out sm" data-act="analyze" ${S.checking>=0?'disabled':''}>Check for new reviews</button></div>
+  return `<section class="card"><div class="card-h"><h2>How your reviews are doing</h2><button class="btn out sm" data-act="analyze" ${S.checking>=0||S.checkBusy?'disabled':''}>Check for new reviews</button></div>
+   ${checkLine()}
    <div class="tiles">${tile('Your average rating (out of 5)',R.avg,'Up from '+R.prevAvg,true)}${tile('New reviews in the last 4 weeks',R.newN,'Up from '+R.prevNew+' in the 4 weeks before',true)}${tile('New reviews you have answered',pc+'%','Was '+pp+'% before',pc>=pp)}${tile('Typical wait for a reply',R.wait+' days','Was '+R.prevWait+' days. Same day is best.',false)}</div>
    <div class="dist" role="img" aria-label="All ${R.total} reviews by stars: ${[5,4,3,2,1].map((n,i)=>R.dist[i]+' with '+n).join(', ')}">${[5,4,3,2,1].map((n,i)=>`<div class="drow"><span>${n} ${n===1?'star':'stars'}</span><i style="--w:${(R.dist[i]/mx*100).toFixed(0)}%"></i><b class="num">${R.dist[i]}</b></div>`).join('')}</div>
    <div class="legend"><span>All ${R.total} reviews on Google and Yelp. Sample data.</span></div></section>`}
@@ -774,7 +781,12 @@ function render(){const n=todayList().length;
   $('#main').innerHTML=(S.loading&&(S.tab==='week'||S.tab==='reviews'))?loadingCard():({week:vWeek,reviews:vReviews,news:vNews,ads:vAds})[S.tab]()}
 
 /* ---- actions ---- */
-async function analyze(){S.tab='week';S.checking=0;render();window.scrollTo(0,0);for(let i=1;i<=4;i++){await sleep(600);S.checking=i;render()}await sleep(400);S.checking=-1;render()}
+async function analyze(){if(LIVE){if(S.checkBusy)return;S.checkBusy=true;S.checkNote=null;render();
+  try{const r=await api('POST','/reviews/check-new');S.checkNote={status:r.status,text:CHECK_TEXT[r.status]||r.message||''};
+    if(r.status==='added'){S.editing=null;S.rmsg=null;S.rejecting=null;await loadLive()}else await syncEvents()}
+  catch(e){S.checkNote={status:'error',text:'We could not check for new reviews. '+(e.message||'')}}
+  S.checkBusy=false;render();return}
+  S.tab='week';S.checking=0;render();window.scrollTo(0,0);for(let i=1;i<=4;i++){await sleep(600);S.checking=i;render()}await sleep(400);S.checking=-1;render()}
 async function execute(kind){const a=S.acts[kind];if(a.state!=='APPROVED'||a.handoff)return;const rep=a.kind==='reply';
   setState(a,'EXECUTING');addEvent('execution.started',rep?'We are posting your reply now.':'We are saving the ad draft now.',a.id+' attempt '+a.attempt+'; '+a.idem);render();await sleep(900);
   if(!preOk(a)){setState(a,'FAILED','precondition_changed');addEvent('execution.refused',rep?'We stopped. The review was edited after you said yes, so we did not post anything.':'We stopped. An ad with that name already exists, so we did not save anything.','precondition_changed; nothing written');render();return}
