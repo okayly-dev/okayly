@@ -8,6 +8,11 @@ Built with Meta's Muse models for the Meta Global AI Developer Hackathon (Build 
 
 **The demo uses a fictional practice and sample data. No real Google, Yelp or ad account is connected.**
 
+## Links
+
+- **Live demo:** https://demo.dentafound.com/ (fictional practice, sandbox accounts, real Muse drafts with a daily spend cap)
+- **Demo video:** https://youtu.be/jAy1svdwRdI
+
 ## What it does
 
 | Screen | What happens |
